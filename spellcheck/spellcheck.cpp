@@ -1,6 +1,21 @@
-﻿#include "spellcheck.h"
+﻿#include <string>
+#include "spellcheck.h"
 
 bool justSwithedFile = false;
+
+FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) {
+    this->button = button;
+    this->closeButton = closeButton;
+    this->path = path;
+    this->text = text;
+    this->id = id;
+    this->saved = saved;
+}
+
+void FileTab::destroy() {
+	if(button != nullptr) delete button;
+    if(closeButton != nullptr) delete closeButton;
+}
 
 spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     setMinimumSize(400, 300);
@@ -22,7 +37,22 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     restoreLastSession();
 }
 
-spellcheck::~spellcheck() {}
+string getFileName(string str) {
+    if(str[str.length() - 1] == '/' || str[str.length() - 1] == '\\') {
+        str = str.substr(0, str.length() - 1);
+    }
+
+    size_t pos = str.find_last_of("/\\");
+    if(pos != string::npos) {
+    	str = str.substr(pos + 1);
+    }
+
+    if(str.size() > 15) {
+		str = str.substr(0, 15) + "...";
+	}
+	return str;
+}
+
 
 void spellcheck::onTextChanged() {
     if(justSwithedFile) {
@@ -38,29 +68,8 @@ void spellcheck::onTextChanged() {
     	focusedFile->button->setText(focusedFile->button->text() + "*");
     }
 
-    QTextCursor cursor = textEdit->textCursor();
-
-    // töroljuk az előző hibákat
-    cursor.select(QTextCursor::Document);
-    textEdit->blockSignals(true);
-    cursor.setCharFormat(QTextCharFormat());
-    textEdit->blockSignals(false);
-    cursor.clearSelection();
-
-    cursor.movePosition(QTextCursor::Start);
-    QTextCharFormat format;
-    format.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
-    format.setUnderlineColor(Qt::red);
-  
-    int index = text.indexOf("world");
-    while(index != -1) {
-		cursor.setPosition(index);
-		cursor.setPosition(index + 5, QTextCursor::KeepAnchor);
-        textEdit->blockSignals(true);
-        cursor.setCharFormat(format);
-        textEdit->blockSignals(false);
-		index = text.indexOf("world", index + 5);
-	}
+    focusedFile->detectErrors(textEdit->toPlainText());
+    underlineErrors();
 }
 
 void spellcheck::resizeEvent(QResizeEvent* event) {
@@ -73,7 +82,7 @@ void spellcheck::wheelEvent(QWheelEvent* event) {
     QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
 
     if(cursor.y() < fileButtonHeight) { // ha a file bar-on van a kurzor
-        int e = keepBetween(event->angleDelta().x(), -50, 50); // mekkorát scrolloltunk
+        int e = keepBetween(event->angleDelta().x() + event->angleDelta().y(), -50, 50) / 2; // mekkorát scrolloltunk
 
         fileTabScrollValue += e;
         int scrollValue = fileTabScrollValue;
@@ -103,7 +112,7 @@ void spellcheck::createFileTabs(vector<FileTab> &tabs) {
         int id = i + maxFileID;
 
         // file gombok létrehozása
-		QPushButton* button = new QPushButton(QString::fromStdString(tabs[i].getFileName()), this);
+		QPushButton* button = new QPushButton(QString::fromStdString(getFileName(tabs[i].path)), this);
 		button->setGeometry(fileTabs.size() * (fileButtonWidth - 1) + fileTabScrollValue, 0, fileButtonWidth, fileButtonHeight + 1);
         button->setVisible(true);
         button->setStyleSheet(style::fileButton);
@@ -122,7 +131,8 @@ void spellcheck::createFileTabs(vector<FileTab> &tabs) {
         buffer << file.rdbuf();
         file.close();
 
-		fileTabs.push_back({button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved});
+		//fileTabs.push_back({button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved});
+	    fileTabs.push_back(FileTab(button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved));
 	}
     if(focusedFile == nullptr) focusFile(fileTabs[0].id);
 
@@ -158,6 +168,7 @@ vector<string> spellcheck::getFilesFromLastSession() {
 }
 
 void spellcheck::restoreLastSession() {
+    // fileok betöltése
 	vector<string> files = getFilesFromLastSession();
     if(files.empty()) files.push_back(getNewUntitledFile());
 	vector<FileTab> tabs;
@@ -165,6 +176,28 @@ void spellcheck::restoreLastSession() {
 		tabs.push_back({nullptr, nullptr, files[i], "", i, true});
     }
 	createFileTabs(tabs);
+
+    // szótárak betöltése
+    ifstream file("data/dictionaries.txt");
+    currentDictionary = -1;
+    if(!file) return;
+    string str;
+    file >> currentDictionary >> str;
+    file.close();
+    vector<string> paths = split(str, '|');
+    for(string &path : paths) {
+        dictionaries.push_back(Dictionary());
+        dictionaries[dictionaries.size() - 1].path = path;
+        ifstream file("data/dictionaries/" + path);
+        if(!file.good()) {
+        	qDebug() << "could not open file " << path;
+        	return;
+        }
+        dictionaries[dictionaries.size() - 1].words.load(file);
+        file.close();
+        qDebug() << "works: " << dictionaries[dictionaries.size() - 1].words.contains("banana");
+    }
+    qDebug() << "Dictionaries loaded";
 }
 
 void spellcheck::focusFile(int fileID) {
@@ -191,7 +224,7 @@ void spellcheck::saveFile() {
 	file << textEdit->toPlainText().toStdString();
 	file.close();
 	focusedFile->saved = true;
-	focusedFile->button->setText(QString::fromStdString(focusedFile->getFileName()));
+	focusedFile->button->setText(QString::fromStdString(getFileName(focusedFile->path)));
 }
 
 void spellcheck::closeFile(int fileID) {
@@ -208,8 +241,7 @@ void spellcheck::closeFile(int fileID) {
 
             deletedI = i;
 
-            delete fileTabs[i].button;
-            delete fileTabs[i].closeButton;
+            fileTabs[i].destroy();
             fileTabs.erase(fileTabs.begin() + i);
 
             if(wasFocused) {
@@ -244,30 +276,10 @@ void spellcheck::addFile() {
 	QString path = QFileDialog::getOpenFileName(this, "Open file");
 	if(path.isEmpty()) return;
 
-	FileTab tab = {nullptr, nullptr, path.toStdString(), "", 0, true};
+    FileTab tab(path.toStdString());
     vector<FileTab> tabs = {tab};
     createFileTabs(tabs);
     focusFile(fileTabs[fileTabs.size() - 1].id);
-}
-
-string FileTab::getFileName() {
-    string fileName = this->path;
-
-    qDebug() << fileName << " id: " << this->id;
-
-    if(fileName[fileName.length() - 1] == '/' || fileName[fileName.length() - 1] == '\\') {
-        fileName = fileName.substr(0, fileName.length() - 1);
-    }
-
-    size_t pos = fileName.find_last_of("/\\");
-    if(pos != string::npos) {
-    	fileName = fileName.substr(pos + 1);
-    }
-
-    if(fileName.size() > 15) {
-		fileName = fileName.substr(0, 15) + "...";
-	}
-	return fileName;
 }
 
 void spellcheck::saveCurrentSession() {
@@ -303,7 +315,7 @@ string spellcheck::getNewUntitledFile() {
 void spellcheck::addUntitledFile() {
     qDebug() << "Adding new file";
 	string fileName = getNewUntitledFile();
-	FileTab tab = {nullptr, nullptr, fileName, "", 0, true};
+    FileTab tab(fileName);
 	vector<FileTab> tabs = {tab};
 	createFileTabs(tabs);
 	focusFile(fileTabs[fileTabs.size() - 1].id);
@@ -314,3 +326,4 @@ int spellcheck::keepBetween(int value, int min, int max) {
 	if(value > max) return max;
 	return value;
 }
+

@@ -40,8 +40,22 @@
     <ClCompile Include="spellcheck.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="errordetection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rbtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="lastsession.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="errordetection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rbtree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

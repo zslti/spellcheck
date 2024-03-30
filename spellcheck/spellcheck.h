@@ -21,8 +21,11 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include "errordetection.h"
 
 using namespace std;
+
+class Error;
 
 const int fileButtonWidth = 120;
 const int fileButtonHeight = 30;
@@ -35,8 +38,14 @@ public:
     string text;
     int id;
     bool saved;
+    vector<Error> errors;
 
-    string getFileName();
+    void detectErrors(QString);
+
+    FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved);
+    FileTab(string path) : FileTab(nullptr, nullptr, path, "", -1, true) {}
+    
+    void destroy();
 };
 
 class spellcheck : public QMainWindow
@@ -44,7 +53,6 @@ class spellcheck : public QMainWindow
     Q_OBJECT
 public:
     spellcheck(QWidget *parent = nullptr);
-    ~spellcheck();
 public slots:
     void onTextChanged();
     void resizeEvent(QResizeEvent*);
@@ -62,6 +70,7 @@ public slots:
     bool fileExists(string);
     void addUntitledFile();
     int keepBetween(int, int, int);
+    void underlineErrors();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;

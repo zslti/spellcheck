@@ -64,6 +64,11 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
   </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Link>
+      <StackReserveSize>1000000000</StackReserveSize>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
       <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
@@ -92,6 +97,8 @@
     <QtRcc Include="spellcheck.qrc" />
     <QtUic Include="spellcheck.ui" />
     <QtMoc Include="spellcheck.h" />
+    <ClCompile Include="errordetection.cpp" />
+    <ClCompile Include="rbtree.cpp" />
     <ClCompile Include="spellcheck.cpp">
       <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">input</DynamicSource>
       <QtMocFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename).moc</QtMocFileName>
@@ -102,6 +109,10 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="lastsession.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="errordetection.h" />
+    <ClInclude Include="rbtree.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
