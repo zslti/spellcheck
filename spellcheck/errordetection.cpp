@@ -1,7 +1,12 @@
 ﻿#include <iostream>
+#include <chrono>
+#include <QMutex>
 #include "errordetection.h"
 
 using namespace std;
+
+typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
+typedef chrono::duration<double> Duration;
 
 vector<Dictionary> dictionaries;
 int currentDictionary;
@@ -41,24 +46,34 @@ bool isSeparator(QChar c) {
 }
 
 void FileTab::detectErrors(QString text) {
+	TimePoint start = chrono::high_resolution_clock::now();
 	this->errors.clear();
 	text += " ";
 
 	// helytelen szó ellenőrzés
-	QString word = "";
-	for(int i = 0; i < text.size(); i++) {
-		if(isSeparator(text[i])) {
-			if(word.length() == 0) continue;
-			bool isValid = dictionaries[currentDictionary].words.contains(word.toStdString());
-			if(!isValid) this->errors.push_back(Error(invalidWord, i - word.length(), i, word));
-			word = "";
-		} else {
-			word += text[i];
+	if(currentDictionary != -1 && dictionaries.size() > currentDictionary) {
+		QString word = "";
+		for(int i = 0; i < text.size(); i++) {
+			if(isSeparator(text[i])) {
+				if(word.length() == 0) continue;
+				bool isValid = dictionaries[currentDictionary].words.contains(word.toLower().toStdString());
+				if(!isValid) this->errors.push_back(Error(invalidWord, i - word.length(), i, word));
+				word = "";
+			} else {
+				word += text[i];
+			}
 		}
 	}
+	
+	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
+	qDebug() << "Error detection took " << elapsedSeconds.count() << " seconds";
 }
 
+//static QMutex mutex;
+
 void spellcheck::underlineErrors() {
+	TimePoint start = chrono::high_resolution_clock::now();
+	if(textEdit == nullptr) return;	
 	QTextCursor cursor = textEdit->textCursor();
 
     // töroljuk az előző hibákat
@@ -68,15 +83,32 @@ void spellcheck::underlineErrors() {
     textEdit->blockSignals(false);
     cursor.clearSelection();
 
+	
+	// aláhúzzuk a hibákat
 	QString text = textEdit->toPlainText();
+	textEdit->blockSignals(true);
+	QTextCharFormat format;
+	format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
+	format.setUnderlineColor(QColor(style::accentColor));
 	for(Error &error : focusedFile->errors) {
 		cursor.setPosition(error.startIndex);
 		cursor.setPosition(error.endIndex, QTextCursor::KeepAnchor);
-		QTextCharFormat format;
-		format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
-		format.setUnderlineColor(Qt::red);
-		textEdit->blockSignals(true);
 		cursor.setCharFormat(format);
-		textEdit->blockSignals(false);
 	}
+	textEdit->blockSignals(false);
+
+	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
+	qDebug() << "Underlining errors took " << elapsedSeconds.count() << " seconds";
+}
+
+void spellcheck::underlineErrorsLater() {
+	static bool isFirstCall = true;
+	static TimePoint lastCall = chrono::high_resolution_clock::now();
+	const int interval = 5000;
+	if(!isFirstCall && chrono::high_resolution_clock::now() - lastCall < chrono::milliseconds(interval)) return;
+	lastCall = chrono::high_resolution_clock::now();
+	isFirstCall = false;
+	QTimer::singleShot(interval, this, [=] {
+		underlineErrors();
+	});
 }

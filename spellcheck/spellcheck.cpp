@@ -1,15 +1,18 @@
 ﻿#include <string>
+#include <future>
+#include <QtConcurrent/QtConcurrentRun>
 #include "spellcheck.h"
 
 bool justSwithedFile = false;
 
-FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) {
+FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) : errors() {
     this->button = button;
     this->closeButton = closeButton;
     this->path = path;
     this->text = text;
     this->id = id;
     this->saved = saved;
+    detectErrors(QString::fromStdString(text));
 }
 
 void FileTab::destroy() {
@@ -17,27 +20,70 @@ void FileTab::destroy() {
     if(closeButton != nullptr) delete closeButton;
 }
 
-spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
-    setMinimumSize(400, 300);
+Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<pair<QString, function<void(int, int, QString)>>> buttons) {
+    closeButton = new QPushButton(parent);
+    closeButton->setGeometry(0, 0, parent->size().width(), parent->size().height());
+    closeButton->setStyleSheet("background: transparent");
+    closeButton->show();
+    QObject::connect(closeButton, &QPushButton::clicked, [=]() {
+        delete this;
+    });
 
-    background = new QPushButton(this);
-    background->setGeometry(0, 0, 400, 300);
-    background->setStyleSheet(style::background);
-    connect(background, &QPushButton::clicked, this, &spellcheck::addUntitledFile);
+	background = new QPushButton(parent);
+	//background->setGeometry(x, y, 300, 200);
+	background->setStyleSheet(style::popupBackground);
+	background->show();
 
-    textEdit = new QTextEdit(this);
-    connect(textEdit, &QTextEdit::textChanged, this, &spellcheck::onTextChanged);
-    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_S), this), &QShortcut::activated, this, &spellcheck::saveFile);
+	this->title = new QLabel(title, background);
+    int titleWidth = this->title->sizeHint().width();
+    int titleHeight = this->title->sizeHint().height();
+	this->title->setGeometry(10, 6, titleWidth + 10, titleHeight);
+	this->title->setStyleSheet(style::popupTitle);
+	this->title->show();
 
-    addFileButton = new QPushButton("+", this);
-    addFileButton->setGeometry(0, 0, fileButtonHeight + 1, fileButtonHeight + 1);
-    addFileButton->setStyleSheet(style::fileAddButton);
-    connect(addFileButton, &QPushButton::clicked, this, &spellcheck::addFile);
+	this->subtitle = new QLabel(subtitle, background);
+    int subtitleWidth = this->subtitle->sizeHint().width();
+	int subtitleHeight = this->subtitle->sizeHint().height();
+    if(subtitle == "") subtitleHeight = 0;
+	this->subtitle->setGeometry(10, 26, subtitleWidth + 10, subtitleHeight);
+	this->subtitle->setStyleSheet(style::popupSubtitle);
+	this->subtitle->show();
 
-    restoreLastSession();
+    int maxWidth = max(titleWidth, subtitleWidth);
+
+	for(int i = 0; i < buttons.size(); i++) {
+    	QPushButton* button = new QPushButton(buttons[i].first, background);
+    	//button->setGeometry(10, 80 + i * 30, 280, 30);
+    	button->setStyleSheet(style::popupButton);
+    	button->show();
+    	QObject::connect(button, &QPushButton::clicked, [=]() {
+            buttons[i].second(x, y, "");
+        });
+    	this->buttons.push_back(button);
+        maxWidth = max(maxWidth, button->sizeHint().width());
+    }
+
+    maxWidth += popupWidthPadding;
+
+    for(int i = 0; i < this->buttons.size(); i++) {
+    	this->buttons[i]->setGeometry(0, titleHeight + subtitleHeight + 14 + i * 30, maxWidth + 20, 30);
+    }
+    int height = titleHeight + subtitleHeight + 14 + this->buttons.size() * 30;
+    background->setGeometry(x, y, max(minPopupWidth, maxWidth + 20), height);
 }
 
-string getFileName(string str) {
+Popup::~Popup() {
+    qDebug() << "Popup destroyed";
+    delete title;
+    delete subtitle;
+    for(QPushButton* button : buttons) {
+    	delete button;
+    }
+    delete closeButton;
+    delete background;
+}
+
+string getFileName(string str, bool includeExtension = true) {
     if(str[str.length() - 1] == '/' || str[str.length() - 1] == '\\') {
         str = str.substr(0, str.length() - 1);
     }
@@ -50,9 +96,54 @@ string getFileName(string str) {
     if(str.size() > 15) {
 		str = str.substr(0, 15) + "...";
 	}
+
+	if(!includeExtension) {
+		pos = str.find_last_of(".");
+		if(pos != string::npos) {
+			str = str.substr(0, pos);
+		}
+	}
 	return str;
 }
 
+spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
+    setMinimumSize(400, 300);
+
+    bottomBar = new QPushButton(this);
+    bottomBar->setStyleSheet(style::bottomBar);
+
+    background = new QPushButton(this);
+    background->setGeometry(0, 0, 400, 300 - bottomBarHeight);
+    background->setStyleSheet(style::background);
+    connect(background, &QPushButton::clicked, this, &spellcheck::addUntitledFile);
+
+    textEdit = new QTextEdit(this);
+    connect(textEdit, &QTextEdit::textChanged, this, &spellcheck::onTextChanged);
+    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_S), this), &QShortcut::activated, this, &spellcheck::saveFile);
+    QFont font = textEdit->font();
+    font.setPointSize(10);
+    textEdit->setFont(font);
+
+    addFileButton = new QPushButton("+", this);
+    addFileButton->setGeometry(0, 0, fileButtonHeight + 1, fileButtonHeight + 1);
+    addFileButton->setStyleSheet(style::fileAddButton);
+    connect(addFileButton, &QPushButton::clicked, this, &spellcheck::addFile);
+
+    QPalette palette = this->palette();
+    palette.setColor(QPalette::Highlight, QColor(style::highlightColor));
+    this->setPalette(palette);
+
+    restoreLastSession();
+
+    dictionaryButton = new QPushButton((currentDictionary != -1 ? QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)) : "Dictionary"), this);
+    dictionaryButton->setStyleSheet(style::bottomBarButton);
+    connect(dictionaryButton, &QPushButton::clicked, this, [this]() {
+        function<void(int, int, QString)> testFunction = [this](int x, int y, QString str) {
+        	qDebug() << "Test function called";
+        };
+        popup = new Popup(this, 0, 0, "Title", "This is a longer subtitle", {{"Button1", testFunction}, {"Button2", testFunction}, {"Button3", testFunction}});
+    });
+}
 
 void spellcheck::onTextChanged() {
     if(justSwithedFile) {
@@ -69,13 +160,24 @@ void spellcheck::onTextChanged() {
     }
 
     focusedFile->detectErrors(textEdit->toPlainText());
-    underlineErrors();
+    focusedFile->errors.size() < 100 ? underlineErrors() : underlineErrorsLater();
 }
 
 void spellcheck::resizeEvent(QResizeEvent* event) {
     qDebug() << "Resized!";
-    textEdit->setGeometry(0, fileButtonHeight, event->size().width(), event->size().height() - fileButtonHeight);
-    background->setGeometry(0, 0, event->size().width(), event->size().height());
+    int x = event->size().width();
+    int y = event->size().height();
+    textEdit->setGeometry(0, fileButtonHeight, x, y - fileButtonHeight - bottomBarHeight);
+    background->setGeometry(0, 0, x, y - bottomBarHeight);
+
+    bottomBar->setGeometry(0, y - bottomBarHeight - 1, x, bottomBarHeight + 2);
+
+    int dictionaryButtonWidth = dictionaryButton->sizeHint().width();
+    dictionaryButton->setGeometry(x - dictionaryButtonWidth, y - bottomBarHeight, dictionaryButtonWidth, bottomBarHeight);
+
+    if(popup != nullptr) {
+    	popup->closeButton->setGeometry(0, 0, x, y);
+    }
 }
 
 void spellcheck::wheelEvent(QWheelEvent* event) {   
@@ -131,13 +233,14 @@ void spellcheck::createFileTabs(vector<FileTab> &tabs) {
         buffer << file.rdbuf();
         file.close();
 
-		//fileTabs.push_back({button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved});
 	    fileTabs.push_back(FileTab(button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved));
 	}
     if(focusedFile == nullptr) focusFile(fileTabs[0].id);
 
     // az új file gombot a fileok végéhez teszük
     addFileButton->setGeometry(fileTabs.size() * (fileButtonWidth - 1) + fileTabScrollValue, 0, fileButtonHeight + 1, fileButtonHeight + 1);
+
+    underlineErrors();
 }
 
 vector<string> split(string str, char delimiter) {
@@ -168,36 +271,36 @@ vector<string> spellcheck::getFilesFromLastSession() {
 }
 
 void spellcheck::restoreLastSession() {
+    // szótárak betöltése
+    ifstream file("data/dictionaries.txt");
+    currentDictionary = -1;
+    string str;
+    if(file >> currentDictionary >> str) {
+        file.close();
+        vector<string> paths = split(str, '|');
+        for(string &path : paths) {
+            dictionaries.push_back(Dictionary());
+            dictionaries[dictionaries.size() - 1].path = path;
+            ifstream file("data/dictionaries/" + path);
+            if(!file.good()) {
+        	    qDebug() << "could not open file " << path;
+        	    return;
+            }
+            dictionaries[dictionaries.size() - 1].words.load(file);
+            file.close();
+        }
+        qDebug() << "Dictionaries loaded";
+    }
+
     // fileok betöltése
 	vector<string> files = getFilesFromLastSession();
+    qDebug() << "Files from last session: " << files;
     if(files.empty()) files.push_back(getNewUntitledFile());
 	vector<FileTab> tabs;
     for(int i = 0; i < files.size(); i++) {
 		tabs.push_back({nullptr, nullptr, files[i], "", i, true});
     }
 	createFileTabs(tabs);
-
-    // szótárak betöltése
-    ifstream file("data/dictionaries.txt");
-    currentDictionary = -1;
-    if(!file) return;
-    string str;
-    file >> currentDictionary >> str;
-    file.close();
-    vector<string> paths = split(str, '|');
-    for(string &path : paths) {
-        dictionaries.push_back(Dictionary());
-        dictionaries[dictionaries.size() - 1].path = path;
-        ifstream file("data/dictionaries/" + path);
-        if(!file.good()) {
-        	qDebug() << "could not open file " << path;
-        	return;
-        }
-        dictionaries[dictionaries.size() - 1].words.load(file);
-        file.close();
-        qDebug() << "works: " << dictionaries[dictionaries.size() - 1].words.contains("banana");
-    }
-    qDebug() << "Dictionaries loaded";
 }
 
 void spellcheck::focusFile(int fileID) {
@@ -216,6 +319,8 @@ void spellcheck::focusFile(int fileID) {
 			tab.button->setStyleSheet(style::fileButton);
 		}
 	}
+
+    underlineErrors();
 }
 
 void spellcheck::saveFile() {
@@ -318,6 +423,7 @@ void spellcheck::addUntitledFile() {
     FileTab tab(fileName);
 	vector<FileTab> tabs = {tab};
 	createFileTabs(tabs);
+    focusedFile = nullptr;
 	focusFile(fileTabs[fileTabs.size() - 1].id);
 }
 

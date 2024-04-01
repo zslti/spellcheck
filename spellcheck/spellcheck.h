@@ -22,13 +22,19 @@
 #include <sstream>
 #include <fstream>
 #include "errordetection.h"
+#include <QLabel>
+#include <functional>
 
 using namespace std;
 
 class Error;
+class spellcheck;
 
 const int fileButtonWidth = 120;
 const int fileButtonHeight = 30;
+const int bottomBarHeight = 20;
+const int minPopupWidth = 100;
+const int popupWidthPadding = 50;
 
 class FileTab {
 public:
@@ -46,6 +52,18 @@ public:
     FileTab(string path) : FileTab(nullptr, nullptr, path, "", -1, true) {}
     
     void destroy();
+};
+
+class Popup {
+public:
+    QPushButton* background;
+    QLabel* title;
+    QLabel* subtitle;
+    QPushButton* closeButton;
+    vector<QPushButton*> buttons;
+
+    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<pair<QString, function<void(int, int, QString)>>> buttons);
+    ~Popup();
 };
 
 class spellcheck : public QMainWindow
@@ -71,18 +89,23 @@ public slots:
     void addUntitledFile();
     int keepBetween(int, int, int);
     void underlineErrors();
+    void underlineErrorsLater();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
     QPushButton* background;
+    QPushButton* bottomBar;
     QPushButton* addFileButton;
+    QPushButton* dictionaryButton;
     vector<FileTab> fileTabs;
     FileTab* focusedFile = nullptr;
+    Popup* popup = nullptr;
     int fileTabScrollValue = 0;
 };
 
 namespace style {
-    const QString accentColor = "#ff0000";
+    const QString accentColor = "#77c2ff";
+    const QString highlightColor = "#62788a";
     const QString fileButtonFocused =
         "QPushButton {\
             color: #f0f0f0;\
@@ -111,10 +134,44 @@ namespace style {
         QPushButton:hover {\
             background-color: #333333;\
         }";
+    const QString bottomBarButton =
+        "QPushButton {\
+            color: #999999;\
+            background-color: #262626;\
+            border-style: solid;\
+            border-color: #262626;\
+            border-bottom-color: #555555;\
+            border-width: 1px;\
+            padding-left: 8px;\
+            padding-right: 8px;\
+        }\
+        QPushButton:hover {\
+            background-color: #333333;\
+            border-bottom-color: " + accentColor + ";\
+        }";
+    const QString bottomBar = "background-color: #262626;";
     const QString fileCloseButton = "background: transparent";
     const QString fileAddButton = 
         "background: transparent;\
         color: " + accentColor + ";\
         font-size: 20px";
     const QString background = "background: transparent";
+    const QString popupBackground = "background-color: #262626; border: none";
+    const QString popupTitle = "color: #f0f0f0; font-size: 14px";
+    const QString popupSubtitle = "color: #999999; font-size: 12px";
+    const QString popupButton =
+        "QPushButton {\
+            color: #999999;\
+            background-color: #262626;\
+            border-style: solid;\
+            border-color: #262626;\
+            border-bottom-color: #555555;\
+            border-width: 1px;\
+            text-align: left;\
+            padding-left: 10px;\
+        }\
+        QPushButton:hover {\
+            background-color: #333333;\
+            border-bottom-color: " + accentColor + ";\
+        }";
 }
