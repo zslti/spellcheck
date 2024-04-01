@@ -24,6 +24,7 @@
 #include "errordetection.h"
 #include <QLabel>
 #include <functional>
+#include <tuple>
 
 using namespace std;
 
@@ -34,7 +35,7 @@ const int fileButtonWidth = 120;
 const int fileButtonHeight = 30;
 const int bottomBarHeight = 20;
 const int minPopupWidth = 100;
-const int popupWidthPadding = 50;
+const int popupWidthPadding = 70;
 
 class FileTab {
 public:
@@ -56,13 +57,20 @@ public:
 
 class Popup {
 public:
+    class Button {
+    public:
+        QString text;
+        function<void(int, int, QString)> onClick;
+        bool isHighlighted;
+    };
+
     QPushButton* background;
     QLabel* title;
     QLabel* subtitle;
     QPushButton* closeButton;
     vector<QPushButton*> buttons;
 
-    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<pair<QString, function<void(int, int, QString)>>> buttons);
+    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons);
     ~Popup();
 };
 
@@ -90,6 +98,8 @@ public slots:
     int keepBetween(int, int, int);
     void underlineErrors();
     void underlineErrorsLater();
+    void destroyPopup();
+    QString getText();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
@@ -172,6 +182,18 @@ namespace style {
         }\
         QPushButton:hover {\
             background-color: #333333;\
+            border-bottom-color: " + accentColor + ";\
+        }";
+    const QString popupButtonHighlighted =
+        "QPushButton {\
+            color: #f0f0f0;\
+            background-color: #333333;\
+            border-style: solid;\
+            border-color: #333333;\
+            border-bottom-color: #555555;\
+            border-width: 1px;\
+            text-align: left;\
+            padding-left: 10px;\
             border-bottom-color: " + accentColor + ";\
         }";
 }

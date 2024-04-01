@@ -20,17 +20,22 @@ void FileTab::destroy() {
     if(closeButton != nullptr) delete closeButton;
 }
 
-Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<pair<QString, function<void(int, int, QString)>>> buttons) {
+void spellcheck::destroyPopup() {
+	if(this->popup == nullptr) return;
+	delete this->popup;
+	this->popup = nullptr;
+}
+
+Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Popup::Button> buttons) {
     closeButton = new QPushButton(parent);
     closeButton->setGeometry(0, 0, parent->size().width(), parent->size().height());
     closeButton->setStyleSheet("background: transparent");
     closeButton->show();
     QObject::connect(closeButton, &QPushButton::clicked, [=]() {
-        delete this;
+        parent->destroyPopup();
     });
 
 	background = new QPushButton(parent);
-	//background->setGeometry(x, y, 300, 200);
 	background->setStyleSheet(style::popupBackground);
 	background->show();
 
@@ -52,12 +57,11 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
     int maxWidth = max(titleWidth, subtitleWidth);
 
 	for(int i = 0; i < buttons.size(); i++) {
-    	QPushButton* button = new QPushButton(buttons[i].first, background);
-    	//button->setGeometry(10, 80 + i * 30, 280, 30);
-    	button->setStyleSheet(style::popupButton);
+    	QPushButton* button = new QPushButton(buttons[i].text, background);
+        button->setStyleSheet(buttons[i].isHighlighted ? style::popupButtonHighlighted : style::popupButton);
     	button->show();
     	QObject::connect(button, &QPushButton::clicked, [=]() {
-            buttons[i].second(x, y, "");
+            buttons[i].onClick(x, y, "");
         });
     	this->buttons.push_back(button);
         maxWidth = max(maxWidth, button->sizeHint().width());
@@ -69,7 +73,12 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
     	this->buttons[i]->setGeometry(0, titleHeight + subtitleHeight + 14 + i * 30, maxWidth + 20, 30);
     }
     int height = titleHeight + subtitleHeight + 14 + this->buttons.size() * 30;
-    background->setGeometry(x, y, max(minPopupWidth, maxWidth + 20), height);
+
+    // maradjon a képernyőn belül
+    x = parent->keepBetween(x, 0, parent->size().width() - maxWidth);
+    y = parent->keepBetween(y, fileButtonHeight, parent->size().height() - height - bottomBarHeight);
+
+    background->setGeometry(x, y, max(minPopupWidth, maxWidth), height);
 }
 
 Popup::~Popup() {
@@ -106,6 +115,10 @@ string getFileName(string str, bool includeExtension = true) {
 	return str;
 }
 
+QString spellcheck::getText() {
+    return this->textEdit->toPlainText();
+}
+
 spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     setMinimumSize(400, 300);
 
@@ -135,13 +148,23 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 
     restoreLastSession();
 
-    dictionaryButton = new QPushButton((currentDictionary != -1 ? QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)) : "Dictionary"), this);
+    dictionaryButton = new QPushButton((currentDictionary != -1 ? QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)) : "Language"), this);
     dictionaryButton->setStyleSheet(style::bottomBarButton);
     connect(dictionaryButton, &QPushButton::clicked, this, [this]() {
-        function<void(int, int, QString)> testFunction = [this](int x, int y, QString str) {
-        	qDebug() << "Test function called";
-        };
-        popup = new Popup(this, 0, 0, "Title", "This is a longer subtitle", {{"Button1", testFunction}, {"Button2", testFunction}, {"Button3", testFunction}});
+        vector<Popup::Button> buttons;
+        for(int i = 0; i < dictionaries.size(); i++) {
+            QString dictionaryName = QString::fromStdString(getFileName(dictionaries[i].path, false));
+            buttons.push_back({dictionaryName, [=](int _, int __, QString ___) {
+				currentDictionary = i;
+                focusedFile->detectErrors(getText());
+				underlineErrors();
+				dictionaryButton->setText(QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)));
+                dictionaryButton->setGeometry(this->size().width() - dictionaryButton->sizeHint().width(), dictionaryButton->geometry().top(), dictionaryButton->sizeHint().width(), dictionaryButton->size().height());
+				destroyPopup();
+			}, i == currentDictionary});
+        }
+        QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
+        popup = new Popup(this, cursor.x(), cursor.y(), "Language", "", buttons);
     });
 }
 
@@ -175,9 +198,7 @@ void spellcheck::resizeEvent(QResizeEvent* event) {
     int dictionaryButtonWidth = dictionaryButton->sizeHint().width();
     dictionaryButton->setGeometry(x - dictionaryButtonWidth, y - bottomBarHeight, dictionaryButtonWidth, bottomBarHeight);
 
-    if(popup != nullptr) {
-    	popup->closeButton->setGeometry(0, 0, x, y);
-    }
+    if(popup != nullptr) popup->closeButton->setGeometry(0, 0, x, y);
 }
 
 void spellcheck::wheelEvent(QWheelEvent* event) {   
@@ -288,6 +309,7 @@ void spellcheck::restoreLastSession() {
             }
             dictionaries[dictionaries.size() - 1].words.load(file);
             file.close();
+            qDebug() << "test " << dictionaries[dictionaries.size() - 1].words.contains("banana");
         }
         qDebug() << "Dictionaries loaded";
     }
@@ -395,6 +417,12 @@ void spellcheck::saveCurrentSession() {
     }
 	file << lastSession;
 	file.close();
+
+    ofstream file2("data/dictionaries.txt");
+    file2 << currentDictionary << "\n";
+    for(Dictionary &dictionary : dictionaries) {
+		file2 << dictionary.path << "|";
+	}
 }
 
 void spellcheck::closeEvent(QCloseEvent *event) {

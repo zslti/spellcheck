@@ -82,7 +82,6 @@ void spellcheck::underlineErrors() {
     cursor.setCharFormat(QTextCharFormat());
     textEdit->blockSignals(false);
     cursor.clearSelection();
-
 	
 	// aláhúzzuk a hibákat
 	QString text = textEdit->toPlainText();

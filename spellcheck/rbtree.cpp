@@ -72,8 +72,8 @@ template<typename T> rbt::RedBlackTree(rbt &tree) : RedBlackTree() {
 
 template<typename T> rbt::~RedBlackTree() {
     qDebug() << "rbt destructor";
-    clear();
-    delete this->root;
+    //clear();
+    //delete this->root;
 }
 
 // forgatunk egy csomópontot a megadott irányba
