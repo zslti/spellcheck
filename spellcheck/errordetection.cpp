@@ -10,6 +10,9 @@ typedef chrono::duration<double> Duration;
 
 vector<Dictionary> dictionaries;
 int currentDictionary;
+QString autoDetectedDictionary = "";
+int autoDetectedDictionaryID = -1;
+const int autoDetect = -1;
 
 Dictionary::Dictionary() : words() {
 	this->path = "";
@@ -25,6 +28,19 @@ Dictionary::Dictionary(string path) : words() {
 	words.load(file);
 	file.close();
 	qDebug() << "Dictionary loaded: " << path;
+}
+
+Dictionary::Dictionary(ifstream &file, QString fileName) : Dictionary()  {
+    if(!file.good()) {
+        qDebug() << "could not open file ";
+        return;
+    }
+    this->words = RedBlackTree<string>(file);
+	qDebug() << "Dictionary loaded: " << this->words.size() << " words";
+	string path = "data/dictionaries/" + fileName.toStdString() + ".dict";
+	ofstream out(path);
+	this->words.save(out);
+	this->path = (fileName + ".dict").toStdString();
 }
 
 Dictionary::Dictionary(const Dictionary &d) {
@@ -50,13 +66,15 @@ void FileTab::detectErrors(QString text) {
 	this->errors.clear();
 	text += " ";
 
+	int dict = (currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary);
+
 	// helytelen szó ellenőrzés
-	if(currentDictionary != -1 && dictionaries.size() > currentDictionary) {
+	if(dictionaries.size() > dict) {
 		QString word = "";
 		for(int i = 0; i < text.size(); i++) {
 			if(isSeparator(text[i])) {
 				if(word.length() == 0) continue;
-				bool isValid = dictionaries[currentDictionary].words.contains(word.toLower().toStdString());
+				bool isValid = dictionaries[dict].words.contains(word.toLower().toStdString());
 				if(!isValid) this->errors.push_back(Error(invalidWord, i - word.length(), i, word));
 				word = "";
 			} else {

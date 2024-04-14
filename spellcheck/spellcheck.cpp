@@ -59,6 +59,8 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
 	for(int i = 0; i < buttons.size(); i++) {
     	QPushButton* button = new QPushButton(buttons[i].text, background);
         button->setStyleSheet(buttons[i].isHighlighted ? style::popupButtonHighlighted : style::popupButton);
+        if(buttons[i].hasTopSeparator) button->setStyleSheet(button->styleSheet() + style::popupButtonWithTopSeparator);
+        if(buttons[i].hasBottomSeparator) button->setStyleSheet(button->styleSheet() + style::popupButtonWithBottomSeparator);
     	button->show();
     	QObject::connect(button, &QPushButton::clicked, [=]() {
             buttons[i].onClick(x, y, "");
@@ -119,6 +121,66 @@ QString spellcheck::getText() {
     return this->textEdit->toPlainText();
 }
 
+void spellcheck::detectLanguage() {
+    QString text = textEdit->toPlainText();
+    QString word = "";
+    vector<int> validWords(dictionaries.size());
+	for(int i = 0; i < text.size(); i++) {
+		if(::isSeparator(text[i])) {
+			if(word.length() == 0) continue;
+            for(int dict = 0; dict < dictionaries.size(); dict++) {
+            	validWords[dict] += dictionaries[dict].words.contains(word.toLower().toStdString());
+                if(validWords[dict] > 10) {
+                    autoDetectedDictionaryID = dict;
+                    autoDetectedDictionary = " (" + QString::fromStdString(getFileName(dictionaries[dict].path, false)) + ")";
+                    return;
+                }
+            }
+			word = "";
+		} else {
+			word += text[i];
+		}
+	}
+
+    int maxValue = 0, maxIndex = 0;
+    for(int i = 0; i < validWords.size(); i++) {
+    	if(validWords[i] > maxValue) {
+            maxValue = validWords[i];
+            maxIndex = i;
+        }
+    }
+
+    if(maxValue > 3) {
+        autoDetectedDictionaryID = maxIndex;
+        autoDetectedDictionary = " (" + QString::fromStdString(getFileName(dictionaries[maxIndex].path, false)) + ")";
+    } else {
+        autoDetectedDictionaryID = -1;
+    	autoDetectedDictionary = "";
+    }
+}
+
+void spellcheck::updateBottomBarGeometry() {
+    if(dictionaryButton == nullptr) return;
+
+    if(currentDictionary != -1) {
+        dictionaryButton->setText(QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)));
+    } else {
+        dictionaryButton->setText("Auto detect" + autoDetectedDictionary);
+    }
+    dictionaryButton->setGeometry(this->size().width() - dictionaryButton->sizeHint().width(), dictionaryButton->geometry().top(), dictionaryButton->sizeHint().width(), dictionaryButton->size().height());
+    
+
+    int x = this->size().width();
+    int y = this->size().height();
+
+    bottomBar->setGeometry(0, y - bottomBarHeight - 1, x, bottomBarHeight + 2);
+
+    int dictionaryButtonWidth = dictionaryButton->sizeHint().width();
+    dictionaryButton->setGeometry(x - dictionaryButtonWidth, y - bottomBarHeight, dictionaryButtonWidth, bottomBarHeight);
+
+    if(popup != nullptr) popup->closeButton->setGeometry(0, 0, x, y);
+}
+
 spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     setMinimumSize(400, 300);
 
@@ -152,20 +214,45 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     dictionaryButton->setStyleSheet(style::bottomBarButton);
     connect(dictionaryButton, &QPushButton::clicked, this, [this]() {
         vector<Popup::Button> buttons;
+        buttons.push_back({"Auto detect", [=](int _, int __, QString ___) {
+            currentDictionary = autoDetect;
+            detectLanguage();
+			focusedFile->detectErrors(getText());
+			underlineErrors();
+			updateBottomBarGeometry();
+			destroyPopup();
+        }, currentDictionary == autoDetect, false, true});
+
+        // szótárak gombjai
         for(int i = 0; i < dictionaries.size(); i++) {
             QString dictionaryName = QString::fromStdString(getFileName(dictionaries[i].path, false));
             buttons.push_back({dictionaryName, [=](int _, int __, QString ___) {
 				currentDictionary = i;
                 focusedFile->detectErrors(getText());
 				underlineErrors();
-				dictionaryButton->setText(QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)));
-                dictionaryButton->setGeometry(this->size().width() - dictionaryButton->sizeHint().width(), dictionaryButton->geometry().top(), dictionaryButton->sizeHint().width(), dictionaryButton->size().height());
+                updateBottomBarGeometry();
 				destroyPopup();
 			}, i == currentDictionary});
         }
+
+        buttons.push_back({"Add new dictionary", [=](int _, int __, QString ___) {
+            QString path = QFileDialog::getOpenFileName(this, "Open dictionary");
+            if(path.isEmpty()) return;
+            ifstream file(path.toStdString());
+            dictionaries.push_back(Dictionary(file, QString::fromStdString(getFileName(path.toStdString(), false))));
+            file.close();
+            currentDictionary = dictionaries.size() - 1;
+            focusedFile->detectErrors(getText());
+            underlineErrors();
+            updateBottomBarGeometry();
+            destroyPopup();
+        }, false, true});
         QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
         popup = new Popup(this, cursor.x(), cursor.y(), "Language", "", buttons);
     });
+
+    if(currentDictionary == -1) detectLanguage();
+    updateBottomBarGeometry();
 }
 
 void spellcheck::onTextChanged() {
@@ -182,8 +269,12 @@ void spellcheck::onTextChanged() {
     	focusedFile->button->setText(focusedFile->button->text() + "*");
     }
 
+    if(currentDictionary == autoDetect) detectLanguage();
+
     focusedFile->detectErrors(textEdit->toPlainText());
     focusedFile->errors.size() < 100 ? underlineErrors() : underlineErrorsLater();
+    
+    updateBottomBarGeometry();
 }
 
 void spellcheck::resizeEvent(QResizeEvent* event) {
@@ -192,13 +283,7 @@ void spellcheck::resizeEvent(QResizeEvent* event) {
     int y = event->size().height();
     textEdit->setGeometry(0, fileButtonHeight, x, y - fileButtonHeight - bottomBarHeight);
     background->setGeometry(0, 0, x, y - bottomBarHeight);
-
-    bottomBar->setGeometry(0, y - bottomBarHeight - 1, x, bottomBarHeight + 2);
-
-    int dictionaryButtonWidth = dictionaryButton->sizeHint().width();
-    dictionaryButton->setGeometry(x - dictionaryButtonWidth, y - bottomBarHeight, dictionaryButtonWidth, bottomBarHeight);
-
-    if(popup != nullptr) popup->closeButton->setGeometry(0, 0, x, y);
+    updateBottomBarGeometry();
 }
 
 void spellcheck::wheelEvent(QWheelEvent* event) {   
@@ -342,7 +427,9 @@ void spellcheck::focusFile(int fileID) {
 		}
 	}
 
+    detectLanguage();
     underlineErrors();
+    updateBottomBarGeometry();
 }
 
 void spellcheck::saveFile() {

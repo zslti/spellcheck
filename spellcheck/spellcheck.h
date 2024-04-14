@@ -62,6 +62,8 @@ public:
         QString text;
         function<void(int, int, QString)> onClick;
         bool isHighlighted;
+        bool hasTopSeparator;
+        bool hasBottomSeparator;
     };
 
     QPushButton* background;
@@ -100,13 +102,15 @@ public slots:
     void underlineErrorsLater();
     void destroyPopup();
     QString getText();
+    void updateBottomBarGeometry();
+    void detectLanguage();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
     QPushButton* background;
     QPushButton* bottomBar;
     QPushButton* addFileButton;
-    QPushButton* dictionaryButton;
+    QPushButton* dictionaryButton = nullptr;
     vector<FileTab> fileTabs;
     FileTab* focusedFile = nullptr;
     Popup* popup = nullptr;
@@ -175,14 +179,13 @@ namespace style {
             background-color: #262626;\
             border-style: solid;\
             border-color: #262626;\
-            border-bottom-color: #555555;\
-            border-width: 1px;\
+            border-width: 2px;\
             text-align: left;\
             padding-left: 10px;\
         }\
         QPushButton:hover {\
             background-color: #333333;\
-            border-bottom-color: " + accentColor + ";\
+            border-left-color: " + accentColor + ";\
         }";
     const QString popupButtonHighlighted =
         "QPushButton {\
@@ -190,10 +193,25 @@ namespace style {
             background-color: #333333;\
             border-style: solid;\
             border-color: #333333;\
-            border-bottom-color: #555555;\
-            border-width: 1px;\
+            border-width: 2px;\
             text-align: left;\
             padding-left: 10px;\
-            border-bottom-color: " + accentColor + ";\
+            border-left-color: " + accentColor + ";\
+        }";
+    const QString popupButtonWithTopSeparator =
+        "QPushButton {\
+            border-style: solid;\
+            border-width: 2px;\
+            text-align: left;\
+            padding-left: 10px;\
+			border-top-color: #363636;\
+        }";
+    const QString popupButtonWithBottomSeparator =
+        "QPushButton {\
+            border-style: solid;\
+            border-width: 2px;\
+            text-align: left;\
+            padding-left: 10px;\
+			border-bottom-color: #363636;\
         }";
 }

@@ -16,11 +16,16 @@ public:
 
 	Dictionary();
 	Dictionary(string path);
+	Dictionary(ifstream &file, QString fileName);
 	Dictionary(const Dictionary &d);
 };
 
 extern vector<Dictionary> dictionaries;
 extern int currentDictionary;
+extern const int autoDetect;
+extern QString autoDetectedDictionary;
+extern int autoDetectedDictionaryID;
+extern bool isSeparator(QChar c);
 
 class Error {
 public:
