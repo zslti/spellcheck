@@ -14,6 +14,39 @@ QString autoDetectedDictionary = "";
 int autoDetectedDictionaryID = -1;
 const int autoDetect = -1;
 
+int getCurrentDictionary() {
+	return currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary;
+}
+
+Error::Error(ErrorType type, int startIndex, int endIndex, QString text) {
+	this->type = type;
+	this->startIndex = startIndex;
+	this->endIndex = endIndex;
+	this->text = text;
+}
+
+void Error::getSuggestions() {
+	TimePoint start = chrono::high_resolution_clock::now();
+	int dict = getCurrentDictionary();
+	if(type == invalidWord && dictionaries.size() > dict) {
+		this->suggestions = dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 10);
+		qDebug() << "Suggestions for " << this->text << ":" << this->suggestions;
+	}
+
+	if(this->suggestions.size() > 5) {
+		this->suggestions.resize(5);
+	}
+	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
+	qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
+}
+
+Error getErrorAt(int index, QString text, vector<Error> &errors) {
+	for(Error &error : errors) {
+		if(index >= error.startIndex && index <= error.endIndex) return error;
+	}
+	return Error(none, -1, -1, "");
+}
+
 Dictionary::Dictionary() : words() {
 	this->path = "";
 }
@@ -66,7 +99,7 @@ void FileTab::detectErrors(QString text) {
 	this->errors.clear();
 	text += " ";
 
-	int dict = (currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary);
+	int dict = getCurrentDictionary();
 
 	// helytelen szó ellenőrzés
 	if(dictionaries.size() > dict) {

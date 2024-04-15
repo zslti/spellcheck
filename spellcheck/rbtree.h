@@ -59,6 +59,7 @@ public:
     vector<T> keys();
     vector<T> keysBetween(T, T);
     vector<T> closestMatches(T);
+    vector<T> closestMatches(T, int);
 
     RedBlackTree();
     RedBlackTree(rbt&);

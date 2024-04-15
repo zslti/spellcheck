@@ -7,7 +7,6 @@ bool justSwithedFile = false;
 
 FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) : errors() {
     this->button = button;
-    this->closeButton = closeButton;
     this->path = path;
     this->text = text;
     this->id = id;
@@ -17,7 +16,6 @@ FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, str
 
 void FileTab::destroy() {
 	if(button != nullptr) delete button;
-    if(closeButton != nullptr) delete closeButton;
 }
 
 void spellcheck::destroyPopup() {
@@ -26,14 +24,9 @@ void spellcheck::destroyPopup() {
 	this->popup = nullptr;
 }
 
-Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Popup::Button> buttons) {
+Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Popup::Button> buttons, int buttonHeight = 30) {
     closeButton = new QPushButton(parent);
-    closeButton->setGeometry(0, 0, parent->size().width(), parent->size().height());
-    closeButton->setStyleSheet("background: transparent");
-    closeButton->show();
-    QObject::connect(closeButton, &QPushButton::clicked, [=]() {
-        parent->destroyPopup();
-    });
+    QObject::connect(closeButton, &QPushButton::clicked, [=]() {parent->destroyPopup();});
 
 	background = new QPushButton(parent);
 	background->setStyleSheet(style::popupBackground);
@@ -42,6 +35,7 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
 	this->title = new QLabel(title, background);
     int titleWidth = this->title->sizeHint().width();
     int titleHeight = this->title->sizeHint().height();
+    if(title == "") titleHeight = -14;
 	this->title->setGeometry(10, 6, titleWidth + 10, titleHeight);
 	this->title->setStyleSheet(style::popupTitle);
 	this->title->show();
@@ -72,9 +66,9 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
     maxWidth += popupWidthPadding;
 
     for(int i = 0; i < this->buttons.size(); i++) {
-    	this->buttons[i]->setGeometry(0, titleHeight + subtitleHeight + 14 + i * 30, maxWidth + 20, 30);
+    	this->buttons[i]->setGeometry(0, titleHeight + subtitleHeight + 14 + i * buttonHeight, maxWidth + 20, buttonHeight);
     }
-    int height = titleHeight + subtitleHeight + 14 + this->buttons.size() * 30;
+    int height = titleHeight + subtitleHeight + 14 + this->buttons.size() * buttonHeight;
 
     // maradjon a képernyőn belül
     x = parent->keepBetween(x, 0, parent->size().width() - maxWidth);
@@ -178,12 +172,51 @@ void spellcheck::updateBottomBarGeometry() {
     int dictionaryButtonWidth = dictionaryButton->sizeHint().width();
     dictionaryButton->setGeometry(x - dictionaryButtonWidth, y - bottomBarHeight, dictionaryButtonWidth, bottomBarHeight);
 
-    if(popup != nullptr) popup->closeButton->setGeometry(0, 0, x, y);
+    //if(popup != nullptr) popup->closeButton->setGeometry(0, 0, x, y);
+}
+
+void spellcheck::onCursorChanged() {
+    static string oldText = "";
+    if(focusedFile == nullptr) return;
+    destroyPopup();
+
+    // ha kijelöljük a szöveget, ne csináljon semmit, arra sokszor hívódik meg
+    if(textEdit->textCursor().selectedText().length() > 0) return;
+    
+    if(oldText != textEdit->toPlainText().toStdString()) {
+        if(currentDictionary == autoDetect) detectLanguage();
+        focusedFile->detectErrors(textEdit->toPlainText());
+        focusedFile->errors.size() < 100 ? underlineErrors() : underlineErrorsLater();
+        updateBottomBarGeometry();
+    }
+    oldText = textEdit->toPlainText().toStdString();
+
+    Error error = getErrorAt(textEdit->textCursor().position(), getText(), focusedFile->errors);
+    if(error.type == none) return;
+    error.getSuggestions();
+
+    QTextCursor cursor = textEdit->textCursor();
+    QRect cursorRect = textEdit->cursorRect(cursor);
+    vector<Popup::Button> buttons;
+    for(string &suggestion : error.suggestions) {
+        buttons.push_back({QString::fromStdString(suggestion), [=](int _, int __, QString ___) {
+            QTextCursor c = textEdit->textCursor();
+            c.setPosition(error.startIndex);
+            c.setPosition(error.endIndex, QTextCursor::KeepAnchor);
+            c.insertText(QString::fromStdString(suggestion));
+            focusedFile->detectErrors(getText());
+            underlineErrors();
+            updateBottomBarGeometry();
+            destroyPopup();
+        }}); 
+    }
+    popup = new Popup(this, cursorRect.x(), cursorRect.y() + 50, "", "", buttons, 25);
 }
 
 spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     setMinimumSize(400, 300);
-
+    this->setMouseTracking(true);
+       
     bottomBar = new QPushButton(this);
     bottomBar->setStyleSheet(style::bottomBar);
 
@@ -194,6 +227,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 
     textEdit = new QTextEdit(this);
     connect(textEdit, &QTextEdit::textChanged, this, &spellcheck::onTextChanged);
+    connect(textEdit, &QTextEdit::cursorPositionChanged, this, &spellcheck::onCursorChanged);
     connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_S), this), &QShortcut::activated, this, &spellcheck::saveFile);
     QFont font = textEdit->font();
     font.setPointSize(10);
@@ -213,6 +247,11 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     dictionaryButton = new QPushButton((currentDictionary != -1 ? QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)) : "Language"), this);
     dictionaryButton->setStyleSheet(style::bottomBarButton);
     connect(dictionaryButton, &QPushButton::clicked, this, [this]() {
+        destroyPopup();
+        // az elejére visszük a kurzort, mert onCursorChange-en lesz destroyolva a popup, 
+        // és ha oda kattintanánk ahol volt eddig, akkor nem fut le az event
+        textEdit->moveCursor(QTextCursor::Start);
+
         vector<Popup::Button> buttons;
         buttons.push_back({"Auto detect", [=](int _, int __, QString ___) {
             currentDictionary = autoDetect;
@@ -253,6 +292,8 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 
     if(currentDictionary == -1) detectLanguage();
     updateBottomBarGeometry();
+    focusedFile->detectErrors(getText());
+    underlineErrors();
 }
 
 void spellcheck::onTextChanged() {
@@ -268,13 +309,6 @@ void spellcheck::onTextChanged() {
     	focusedFile->saved = false;
     	focusedFile->button->setText(focusedFile->button->text() + "*");
     }
-
-    if(currentDictionary == autoDetect) detectLanguage();
-
-    focusedFile->detectErrors(textEdit->toPlainText());
-    focusedFile->errors.size() < 100 ? underlineErrors() : underlineErrorsLater();
-    
-    updateBottomBarGeometry();
 }
 
 void spellcheck::resizeEvent(QResizeEvent* event) {
@@ -303,7 +337,6 @@ void spellcheck::wheelEvent(QWheelEvent* event) {
         // minden gombot eltolunk amennyivel kell
         for(FileTab &tab : fileTabs) {
         	tab.button->setGeometry(tab.button->x() + e - diff, 0, fileButtonWidth, fileButtonHeight + 1);
-        	tab.closeButton->setGeometry(tab.closeButton->x() + e - diff, 0, 20, fileButtonHeight + 1);
         }
         addFileButton->setGeometry(addFileButton->x() + e - diff, 0, fileButtonHeight + 1, fileButtonHeight + 1);
     }
@@ -428,6 +461,7 @@ void spellcheck::focusFile(int fileID) {
 	}
 
     detectLanguage();
+    focusedFile->detectErrors(getText());
     underlineErrors();
     updateBottomBarGeometry();
 }
@@ -479,7 +513,6 @@ void spellcheck::closeFile(int fileID) {
     // balra toljuk a többi file gombot
     for(i; i < fileTabs.size(); i++) {
         fileTabs[i].button->setGeometry(i * (fileButtonWidth - 1) + fileTabScrollValue, 0, fileButtonWidth, fileButtonHeight + 1);
-        fileTabs[i].closeButton->setGeometry(i * (fileButtonWidth - 1) + fileButtonWidth - 20 + fileTabScrollValue, 0, 20, fileButtonHeight + 1);
     }
 
     // toljuk balra az új file gombot

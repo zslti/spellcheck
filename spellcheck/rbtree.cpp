@@ -4,6 +4,7 @@
 #include <typeinfo>
 #include <QDebug>
 #include <string>
+#include <stack>
 #include "rbtree.h"
 
 using namespace std;
@@ -492,10 +493,29 @@ template<typename T> vector<T> rbt::keys() {
 
 // belerakja arr-ba a this részfa kulcsait, amelyek a minimum és maximum között vannak
 // növekvő sorrenden (inorder bejárás)
-template<typename T> void rbt::Node::keysBetween(vector<T>& arr, T &minimum, T &maximum) {
-    if(this->left != nullptr) this->left->keysBetween(arr, minimum, maximum);
-    if(this->key >= minimum && this->key <= maximum) arr.push_back(this->key);
-    if(this->right != nullptr) this->right->keysBetween(arr, minimum, maximum);
+template<typename T> void rbt::Node::keysBetween(vector<T> &keys, T& minimum, T& maximum) {
+    stack<Node*> stack;
+    Node* currentNode = this;
+
+    while(currentNode != nullptr || !stack.empty()) {
+        // megyünk a legbaloldali csomópontig, ami nagyobb vagy egyenlő a minimummal
+        while(currentNode) {
+            stack.push(currentNode);
+            currentNode = currentNode->left;
+        }
+        currentNode = stack.top();
+        stack.pop();
+
+        if(currentNode->key >= minimum && currentNode->key <= maximum) {
+            keys.push_back(currentNode->key);
+        }
+
+        // ha nagyobb mint a maximum, már nem fogunk tőle jobbra kisebbet találni
+        if (currentNode->key > maximum) return;
+
+        // megyünk a jobb részfára
+        currentNode = currentNode->right;
+    }
 }
 
 // visszatéríti növekvő sorrendben a fában lévő összes kulcsot, 
@@ -511,11 +531,12 @@ template<typename T> vector<T> rbt::keysBetween(T minimum, T maximum) {
 const int minClosestMatchesSize = 3;
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
-template<> vector<string> RedBlackTree<string>::closestMatches(string key) {
+template<> vector<string> RedBlackTree<string>::closestMatches(string key, int maxTries) {
     if(size() <= minClosestMatchesSize) return keys();
     vector<string> keys;
     string minimum = key, maximum = key;
     int i = key.length() - 1;
+    int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
@@ -526,6 +547,7 @@ template<> vector<string> RedBlackTree<string>::closestMatches(string key) {
         maximum[i] = 255;
         keys = keysBetween(minimum, maximum);
         i--;
+        if(++t == maxTries) break;
     }
     if(keys.size() <= minClosestMatchesSize) return keys;
     vector<string> newKeys;
@@ -544,11 +566,12 @@ template<> vector<string> RedBlackTree<string>::closestMatches(string key) {
 }
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
-template<typename T> vector<T> rbt::closestMatches(T key) {
+template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {
     if(size() <= minClosestMatchesSize) return keys();
     vector<T> keys;
     T minimum = key, maximum = key;
     T i = static_cast<T>(0);
+    int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
@@ -556,8 +579,13 @@ template<typename T> vector<T> rbt::closestMatches(T key) {
         minimum -= i;
         maximum += i;
         i++;
+        t++;
         keys = keysBetween(minimum, maximum);
+        if(t == maxTries) break;
     }
     return keys;
 }
 
+template<typename T> vector<T> rbt::closestMatches(T key) {
+    return closestMatches(key, -1);
+}

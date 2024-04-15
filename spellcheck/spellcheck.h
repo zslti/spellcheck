@@ -40,7 +40,6 @@ const int popupWidthPadding = 70;
 class FileTab {
 public:
     QPushButton* button;
-    QPushButton* closeButton;
     string path;
     string text;
     int id;
@@ -72,7 +71,7 @@ public:
     QPushButton* closeButton;
     vector<QPushButton*> buttons;
 
-    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons);
+    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons, int buttonHeight);
     ~Popup();
 };
 
@@ -104,6 +103,7 @@ public slots:
     QString getText();
     void updateBottomBarGeometry();
     void detectLanguage();
+    void onCursorChanged();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
