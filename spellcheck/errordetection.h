@@ -43,3 +43,4 @@ extern QString autoDetectedDictionary;
 extern int autoDetectedDictionaryID;
 extern bool isSeparator(QChar c);
 extern Error getErrorAt(int index, QString text, vector<Error> &errors);
+extern const QString validChars;

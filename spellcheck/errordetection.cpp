@@ -2,6 +2,7 @@
 #include <chrono>
 #include <QMutex>
 #include "errordetection.h"
+#include "utils.h"
 
 using namespace std;
 
@@ -13,6 +14,7 @@ int currentDictionary;
 QString autoDetectedDictionary = "";
 int autoDetectedDictionaryID = -1;
 const int autoDetect = -1;
+const QString validChars = "abcdefghijklmnopqrstuvwxyzüóőúűéáăîâșț";
 
 int getCurrentDictionary() {
 	return currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary;
@@ -29,13 +31,55 @@ void Error::getSuggestions() {
 	TimePoint start = chrono::high_resolution_clock::now();
 	int dict = getCurrentDictionary();
 	if(type == invalidWord && dictionaries.size() > dict) {
-		this->suggestions = dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 10);
-		qDebug() << "Suggestions for " << this->text << ":" << this->suggestions;
+		TimePoint start = chrono::high_resolution_clock::now();
+		this->suggestions = dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 10, 100);
+		Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
+		qDebug() << "getting closest matches took " << elapsedSeconds.count() << " seconds";
+
+		// kicseréljük egyesével a betűket, ha az valid betesszük
+		for(int i = 0; i < this->text.size(); i++) {
+			QString word = this->text.normalized(QString::NormalizationForm_KC);
+			for(const QChar &c : validChars) {
+				if(word[i] == c) continue;
+				QString modifiedWord = word;
+				modifiedWord[i] = c;
+				if(dictionaries[dict].words.contains(modifiedWord.toStdString())) this->suggestions.push_back(modifiedWord.toStdString());
+			}
+		}
+
+		// felcseréljük a szomszédos betűket, ha az valid betesszük
+		for(int i = 0; i < this->text.size() - 1; i++) {
+			QString word = this->text;
+			swap(word[i], word[i + 1]);
+			if(dictionaries[dict].words.contains(word.toLower().toStdString())) this->suggestions.push_back(word.toStdString());
+		}
+
+		// töröljük a betűket, ha az valid betesszük
+		for(int i = 0; i < this->text.size(); i++) {
+			QString word = this->text;
+			word.remove(i, 1);
+			if(dictionaries[dict].words.contains(word.toLower().toStdString())) this->suggestions.push_back(word.toStdString());
+		}
+
+		// ha a szó kettéválasztható két valid szóvá szedjük szét
+		for(int i = 0; i < this->text.size() - 1; i++) {
+			QString word1 = this->text.left(i + 1);
+			QString word2 = this->text.right(this->text.size() - i - 1);
+			if(dictionaries[dict].words.contains(word1.toLower().toStdString()) && dictionaries[dict].words.contains(word2.toLower().toStdString())) {
+				this->suggestions.push_back(word1.toStdString() + " " + word2.toStdString());
+			}
+		}
+
+		removeDuplicates(this->suggestions);
+		sortByEditDistance(this->suggestions, this->text.toStdString());
+
+		for(string &suggestion : this->suggestions) {
+			suggestion = maintainCase(suggestion, this->text.toStdString());			
+		}
 	}
 
-	if(this->suggestions.size() > 5) {
-		this->suggestions.resize(5);
-	}
+	if(this->suggestions.size() > 5) this->suggestions.resize(5);
+	
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
 	qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
 }
@@ -121,6 +165,7 @@ void FileTab::detectErrors(QString text) {
 	
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
 	qDebug() << "Error detection took " << elapsedSeconds.count() << " seconds";
+	this->errorDetectionTime = elapsedSeconds.count() * 1000;
 }
 
 //static QMutex mutex;
@@ -137,13 +182,17 @@ void spellcheck::underlineErrors() {
     textEdit->blockSignals(false);
     cursor.clearSelection();
 	
+	if(focusedFile->errors.size() > 100) return; 
+
 	// aláhúzzuk a hibákat
 	QString text = textEdit->toPlainText();
 	textEdit->blockSignals(true);
 	QTextCharFormat format;
 	format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 	format.setUnderlineColor(QColor(style::accentColor));
-	for(Error &error : focusedFile->errors) {
+	//for(Error &error : focusedFile->errors) {
+	for(int i = 0; i < focusedFile->errors.size(); i++) {
+		Error &error = focusedFile->errors[i];
 		cursor.setPosition(error.startIndex);
 		cursor.setPosition(error.endIndex, QTextCursor::KeepAnchor);
 		cursor.setCharFormat(format);

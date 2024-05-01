@@ -58,8 +58,10 @@ public:
     rbt* load(ifstream&);
     vector<T> values();
     vector<T> valuesBetween(T, T);
+    vector<T> valuesBetween(T, T, int);
     vector<T> closestMatches(T);
     vector<T> closestMatches(T, int);
+    vector<T> closestMatches(T, int, int);
 
     RedBlackTree();
     RedBlackTree(rbt&);

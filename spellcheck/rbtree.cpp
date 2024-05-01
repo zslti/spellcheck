@@ -5,13 +5,10 @@
 #include <QDebug>
 #include <string>
 #include <stack>
-#include <map>
 #include "rbtree.h"
+#include "utils.h"
 
 using namespace std;
-
-typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
-typedef chrono::duration<double> Duration;
 
 template class RedBlackTree<short>;
 template class RedBlackTree<int>;
@@ -522,48 +519,23 @@ template<typename T> void rbt::Node::valuesBetween(vector<T> &values, T& minimum
 
 // visszatéríti növekvő sorrendben a fában lévő összes kulcsot, 
 // amelyek a minimum és maximum között vannak
-template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum) {
+template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum, int maxValues) {
     if(isEmpty()) return {};
     if(minimum > maximum) swap(minimum, maximum);
     vector<T> values;
     this->root->valuesBetween(values, minimum, maximum);
+    if(values.size() > maxValues) values.resize(maxValues);
     return values;
 }
 
-int editDistance(string str1, string str2) {
-    static map<pair<string, string>, int> memo;
-    if(memo.find({str1, str2}) != memo.end()) return memo[{str1, str2}];
-
-	int n = str1.length();
-	int m = str2.length();
-	if(n == 0 || m == 0) return max(n, m);
-    vector<vector<int>> dp(n + 1, vector<int>(m + 1));
-    for(int i = 0; i <= n; i++) {
-    	for(int j = 0; j <= m; j++) {
-            if(i == 0) dp[i][j] = j;
-            else if(j == 0) dp[i][j] = i;
-            else if(str1[i - 1] == str2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
-            else dp[i][j] = 1 + min({dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]});
-        }
-    }
-    memo[{str1, str2}] = dp[n][m];
-    return dp[n][m];
-}
-
-vector<string>& sortByEditDistance(vector<string> &arr, string key) {
-    TimePoint start = chrono::high_resolution_clock::now();
-	sort(arr.begin(), arr.end(), [key](string a, string b) {
-        return editDistance(a, key) < editDistance(b, key);
-    });
-    Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	qDebug() << "sort by edit distance took" << elapsedSeconds.count() << " seconds (" << arr.size() << "elements )";
-    return arr;
+template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum) {
+    return valuesBetween(minimum, maximum, INT_MAX);
 }
 
 const int minClosestMatchesSize = 3;
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
-template<> vector<string> RedBlackTree<string>::closestMatches(string key, int maxTries) {
+template<> vector<string> RedBlackTree<string>::closestMatches(string key, int maxTries, int maxValues) {
     if(size() <= minClosestMatchesSize) return values();
     vector<string> values;
     string minimum = key, maximum = key;
@@ -577,19 +549,18 @@ template<> vector<string> RedBlackTree<string>::closestMatches(string key, int m
         // így a 0 - i-1. karakterek közti kulcsokat keressük
         minimum[i] = 0;
         maximum[i] = 255;
-        values = valuesBetween(minimum, maximum);
+        values = valuesBetween(minimum, maximum, maxValues);
         i--;
         if(++t == maxTries) break;
     }
 
-    int maxValues = 1000;
     if(values.size() > maxValues) values.resize(maxValues);
 
     return sortByEditDistance(values, key);
 }
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
-template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {
+template<typename T> vector<T> rbt::closestMatches(T key, int maxTries, int maxValues) {
     if(size() <= minClosestMatchesSize) return values();
     vector<T> values;
     T minimum = key, maximum = key;
@@ -603,12 +574,17 @@ template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {
         maximum += i;
         i++;
         t++;
-        values = valuesBetween(minimum, maximum);
+        values = valuesBetween(minimum, maximum, maxValues);
         if(t == maxTries) break;
     }
+
     return values;
 }
 
+template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {
+    return closestMatches(key, maxTries, INT_MAX);
+}
+
 template<typename T> vector<T> rbt::closestMatches(T key) {
-    return closestMatches(key, -1);
+    return closestMatches(key, -1, INT_MAX);
 }

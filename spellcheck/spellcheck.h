@@ -40,11 +40,13 @@ const int popupWidthPadding = 70;
 class FileTab {
 public:
     QPushButton* button;
+    QPushButton* closeButton;
     string path;
     string text;
     int id;
     bool saved;
     vector<Error> errors;
+    int errorDetectionTime;
 
     void detectErrors(QString);
 
@@ -110,6 +112,8 @@ public slots:
     void handleArrowDown();
     void handleArrowUp();
     void acceptPopupSelection();
+    void restoreDefaultSettings();
+    void insertSpaceWithoutAutoCorrect();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
@@ -117,10 +121,16 @@ private:
     QPushButton* bottomBar;
     QPushButton* addFileButton;
     QPushButton* dictionaryButton = nullptr;
+    QPushButton* autoCorrectButton = nullptr;
+    QPushButton* errorsButton = nullptr;
     vector<FileTab> fileTabs;
     FileTab* focusedFile = nullptr;
     Popup* popup = nullptr;
     int fileTabScrollValue = 0;
+};
+
+struct Settings {
+    bool autoCorrect;
 };
 
 namespace style {
@@ -161,6 +171,8 @@ namespace style {
             border-style: solid;\
             border-color: #262626;\
             border-bottom-color: #555555;\
+            border-right-color: transparent;\
+            border-left-color: transparent;\
             border-width: 1px;\
             padding-left: 8px;\
             padding-right: 8px;\
@@ -169,7 +181,11 @@ namespace style {
             background-color: #333333;\
             border-bottom-color: " + accentColor + ";\
         }";
-    const QString bottomBar = "background-color: #262626;";
+    const QString bottomBar = 
+        "background-color: #262626;\
+         border-style: solid;\
+         border-bottom-color: #555555;\
+         border-width: 1px";
     const QString fileCloseButton = "background: transparent";
     const QString fileAddButton = 
         "background: transparent;\
