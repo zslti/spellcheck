@@ -12,7 +12,7 @@ using namespace std;
 template<typename T> class RedBlackTree {  
     class Node {
     public:
-        T key;
+        T value;
         Node* left, *right, *parent;
         bool color;
 
@@ -22,8 +22,8 @@ template<typename T> class RedBlackTree {
         Node* maximum();
         void clear();
         void save(ofstream&);
-        void keys(vector<T>&);
-        void keysBetween(vector<T>&, T&, T&);
+        void values(vector<T>&);
+        void valuesBetween(vector<T>&, T&, T&);
 
         Node();
         Node(T);
@@ -56,8 +56,8 @@ public:
     bool isNotEmpty();
     rbt* save(ofstream&);
     rbt* load(ifstream&);
-    vector<T> keys();
-    vector<T> keysBetween(T, T);
+    vector<T> values();
+    vector<T> valuesBetween(T, T);
     vector<T> closestMatches(T);
     vector<T> closestMatches(T, int);
 

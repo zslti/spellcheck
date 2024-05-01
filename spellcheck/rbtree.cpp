@@ -5,9 +5,13 @@
 #include <QDebug>
 #include <string>
 #include <stack>
+#include <map>
 #include "rbtree.h"
 
 using namespace std;
+
+typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
+typedef chrono::duration<double> Duration;
 
 template class RedBlackTree<short>;
 template class RedBlackTree<int>;
@@ -21,15 +25,15 @@ template class RedBlackTree<string>;
 
 template<typename T> rbt::Node::Node() : Node(T(), nullptr, nullptr, nullptr, black) {}
 
-template<typename T> rbt::Node::Node(T key) : Node(key, nullptr, nullptr, nullptr, black) {}
+template<typename T> rbt::Node::Node(T value) : Node(value, nullptr, nullptr, nullptr, black) {}
 
-template<typename T> rbt::Node::Node(T key, Node* parent) : Node(key, parent, nullptr, nullptr, black) {}
+template<typename T> rbt::Node::Node(T value, Node* parent) : Node(value, parent, nullptr, nullptr, black) {}
 
-template<typename T> rbt::Node::Node(T key, Node* parent, Node* left, Node* right) : Node(key, parent, left, right, black) {}
+template<typename T> rbt::Node::Node(T value, Node* parent, Node* left, Node* right) : Node(value, parent, left, right, black) {}
 
-template<typename T> rbt::Node::Node(T key, Node* parent, Node* left, Node* right, bool color) {
+template<typename T> rbt::Node::Node(T value, Node* parent, Node* left, Node* right, bool color) {
     this->color = color;
-    this->key = key;
+    this->value = value;
     this->parent = parent;
     this->left = left;
     this->right = right;
@@ -45,14 +49,14 @@ template<typename T> rbt::RedBlackTree() {
     this->elements = 0;
 }
 
-template<typename T> rbt::RedBlackTree(T key) {
+template<typename T> rbt::RedBlackTree(T value) {
     qDebug() << "rbt constructor";
-    this->root = new Node(key);
+    this->root = new Node(value);
     this->elements = 1;
 }
 
-template<typename T> rbt::RedBlackTree(vector<T> keys) : RedBlackTree() {
-    insert(keys);
+template<typename T> rbt::RedBlackTree(vector<T> values) : RedBlackTree() {
+    insert(values);
 }
 
 template<typename T> rbt::RedBlackTree(ifstream &file) : RedBlackTree() {
@@ -118,17 +122,17 @@ template<typename T> void rbt::rotate(Node* node, bool direction) {
 }
 
 // beszúrja a megadott értékű csomópontot
-template<typename T> typename rbt::Node* rbt::Node::insert(T key) {
-    if(key < this->key) {
+template<typename T> typename rbt::Node* rbt::Node::insert(T value) {
+    if(value < this->value) {
         if(this->left == nullptr) {
-            return this->left = new Node(key, this);
+            return this->left = new Node(value, this);
         }
-        return this->left->insert(key);
-    } else if(key > this->key) {
+        return this->left->insert(value);
+    } else if(value > this->value) {
         if(this->right == nullptr) {
-            return this->right = new Node(key, this);
+            return this->right = new Node(value, this);
         }
-        return this->right->insert(key);
+        return this->right->insert(value);
     }
     return nullptr;
 }
@@ -181,13 +185,13 @@ template<typename T> void rbt::insertFixup(Node* node) {
 }
 
 // beszúrja az értéket és kiegyenlíti a fát
-template<typename T> rbt* rbt::insert(T key) {
-    if(contains(key)) return this;
+template<typename T> rbt* rbt::insert(T value) {
+    if(contains(value)) return this;
     if(this->elements == 0) {
         this->elements++;
-        this->root = new Node(key);
+        this->root = new Node(value);
     } else {
-        Node* node = this->root->insert(key);
+        Node* node = this->root->insert(value);
         node->color = red;
         if(node != nullptr) {
             this->elements++;
@@ -198,36 +202,36 @@ template<typename T> rbt* rbt::insert(T key) {
 }
 
 // beszúr minden értéket a vektorból
-template<typename T> rbt* rbt::insert(vector<T> keys) {
-    for(T &key : keys) {
-        insert(key);
+template<typename T> rbt* rbt::insert(vector<T> values) {
+    for(T &value : values) {
+        insert(value);
     }
     return this;
 }
 
 // visszatéríti a megadott kulcsú csomópontra mutató pointert (a this részfában)
 // ha nincs ilyen, akkor nullptr-t
-template<typename T> typename rbt::Node* rbt::Node::find(T key) {
-    if(key == this->key) {
+template<typename T> typename rbt::Node* rbt::Node::find(T value) {
+    if(value == this->value) {
         return this;
-    } else if(key < this->key) {
+    } else if(value < this->value) {
         if(this->left == nullptr) return nullptr;
-        return this->left->find(key);
+        return this->left->find(value);
     } else {
         if(this->right == nullptr) return nullptr;
-        return this->right->find(key);
+        return this->right->find(value);
     }
 }
 
 // visszatéríti a megadott kulcsú csomópontra mutató pointert (az egész fában)
 // ha nincs ilyen, akkor nullptr-t
-template<typename T> typename rbt::Node* rbt::find(T key) {
-    return this->root->find(key);
+template<typename T> typename rbt::Node* rbt::find(T value) {
+    return this->root->find(value);
 }
 
 // benne van-e a megadott kulcs a fában
-template<typename T> bool rbt::contains(T key) {
-    return find(key) != nullptr;
+template<typename T> bool rbt::contains(T value) {
+    return find(value) != nullptr;
 }
 
 // segít áthelyezni a részfákat a fán belül
@@ -260,13 +264,13 @@ template<typename T> typename rbt::Node* rbt::Node::maximum() {
 // visszatéríti a legkisebb értéket a fában
 template<typename T> T rbt::minimum() {
     if(isEmpty()) throw EmptyException();
-    return this->root->minimum()->key;
+    return this->root->minimum()->value;
 }
 
 // visszatéríti a legnagyobb értéket a fában
 template<typename T> T rbt::maximum() {
     if(isEmpty()) throw EmptyException();
-    return this->root->maximum()->key;
+    return this->root->maximum()->value;
 }
 
 // kiegyenlíti a fát a törlés után
@@ -333,8 +337,8 @@ template<typename T> void rbt::removeFixup(Node* node) {
 
 // törli a megadott kulcsú csomópontot és kiegyenlíti a fát
 // https://www.youtube.com/watch?v=lU99loSvD8s&t=18s
-template<typename T> rbt* rbt::remove(T key) {
-    Node* node = find(key);
+template<typename T> rbt* rbt::remove(T value) {
+    Node* node = find(value);
     if(node == nullptr) return this;
 
     bool originalColor = node->color;
@@ -375,9 +379,9 @@ template<typename T> rbt* rbt::remove(T key) {
 }
 
 // törli az összes megadott kulcsú csomópontot
-template<typename T> rbt* rbt::remove(vector<T> keys) {
-    for(T &key : keys) {
-        remove(key);
+template<typename T> rbt* rbt::remove(vector<T> values) {
+    for(T &value : values) {
+        remove(value);
     }
     return this;
 }
@@ -426,9 +430,9 @@ template<typename T> bool rbt::isNotEmpty() {
 // (preorder bejárással)
 template<typename T> void rbt::Node::save(ofstream &file) {
     if(this->parent == nullptr) {
-        file << this->key << " " << this->color << "\n";
+        file << this->value << " " << this->color << "\n";
     } else {
-        file << this->key << " " << this->parent->key << " " << this->color << "\n";
+        file << this->value << " " << this->parent->value << " " << this->color << "\n";
     }
     if(this->left != nullptr) this->left->save(file);
     if(this->right != nullptr) this->right->save(file);
@@ -445,26 +449,24 @@ template<typename T> rbt* rbt::save(ofstream &file) {
 // betölti a fát a save metódussal elmentett fájlból
 template<typename T> rbt* rbt::load(ifstream &file) {
     qDebug() << "calling load";
-    T key, parentKey;
+    T value, parentValue;
     bool color;
     if(this->elements != 0) clear();
     // ha üres a fájl, akkor nem csinál semmit
-    if(!(file >> key >> color)) return this;
+    if(!(file >> value >> color)) return this;
     // beállítja a gyökér csomópontot
     int nodes = 1;
-    this->root->key = key;
+    this->root->value = value;
     this->root->color = color;
     
     // minden csomópontra
-    int test = 0;
-    while(file >> key >> parentKey >> color) {
-        //qDebug() << test++;
-        Node* parent = find(parentKey); // megkeresi a szülőt
-        Node* newNode = new Node(key, parent); // létrehozza az új csomópontot és a szülőhöz rendeli
+    while(file >> value >> parentValue >> color) {
+        Node* parent = find(parentValue); // megkeresi a szülőt
+        Node* newNode = new Node(value, parent); // létrehozza az új csomópontot és a szülőhöz rendeli
         newNode->color = color;
 
         // az új csomópontot a szülő bal vagy jobb gyerekévé teszi
-        if(parentKey > key) {
+        if(parentValue > value) {
             parent->left = newNode;
         } else {
             parent->right = newNode;
@@ -477,23 +479,23 @@ template<typename T> rbt* rbt::load(ifstream &file) {
 }
 
 // belerakja arr-ba a this részfa kulcsait növekvő sorrenden (inorder bejárás)
-template<typename T> void rbt::Node::keys(vector<T>& arr) {
-    if(this->left != nullptr) this->left->keys(arr);
-    arr.push_back(this->key);
-    if(this->right != nullptr) this->right->keys(arr);
+template<typename T> void rbt::Node::values(vector<T>& arr) {
+    if(this->left != nullptr) this->left->values(arr);
+    arr.push_back(this->value);
+    if(this->right != nullptr) this->right->values(arr);
 }
 
 // visszatéríti a fában lévő összes kulcsot növekvő sorrendben
-template<typename T> vector<T> rbt::keys() {
+template<typename T> vector<T> rbt::values() {
     if(isEmpty()) return {};
-    vector<T> keys;
-    this->root->keys(keys);
-    return keys;
+    vector<T> values;
+    this->root->values(values);
+    return values;
 }
 
 // belerakja arr-ba a this részfa kulcsait, amelyek a minimum és maximum között vannak
 // növekvő sorrenden (inorder bejárás)
-template<typename T> void rbt::Node::keysBetween(vector<T> &keys, T& minimum, T& maximum) {
+template<typename T> void rbt::Node::valuesBetween(vector<T> &values, T& minimum, T& maximum) {
     stack<Node*> stack;
     Node* currentNode = this;
 
@@ -506,12 +508,12 @@ template<typename T> void rbt::Node::keysBetween(vector<T> &keys, T& minimum, T&
         currentNode = stack.top();
         stack.pop();
 
-        if(currentNode->key >= minimum && currentNode->key <= maximum) {
-            keys.push_back(currentNode->key);
+        if(currentNode->value >= minimum && currentNode->value <= maximum) {
+            values.push_back(currentNode->value);
         }
 
         // ha nagyobb mint a maximum, már nem fogunk tőle jobbra kisebbet találni
-        if (currentNode->key > maximum) return;
+        if (currentNode->value > maximum) return;
 
         // megyünk a jobb részfára
         currentNode = currentNode->right;
@@ -520,70 +522,91 @@ template<typename T> void rbt::Node::keysBetween(vector<T> &keys, T& minimum, T&
 
 // visszatéríti növekvő sorrendben a fában lévő összes kulcsot, 
 // amelyek a minimum és maximum között vannak
-template<typename T> vector<T> rbt::keysBetween(T minimum, T maximum) {
+template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum) {
     if(isEmpty()) return {};
     if(minimum > maximum) swap(minimum, maximum);
-    vector<T> keys;
-    this->root->keysBetween(keys, minimum, maximum);
-    return keys;
+    vector<T> values;
+    this->root->valuesBetween(values, minimum, maximum);
+    return values;
+}
+
+int editDistance(string str1, string str2) {
+    static map<pair<string, string>, int> memo;
+    if(memo.find({str1, str2}) != memo.end()) return memo[{str1, str2}];
+
+	int n = str1.length();
+	int m = str2.length();
+	if(n == 0 || m == 0) return max(n, m);
+    vector<vector<int>> dp(n + 1, vector<int>(m + 1));
+    for(int i = 0; i <= n; i++) {
+    	for(int j = 0; j <= m; j++) {
+            if(i == 0) dp[i][j] = j;
+            else if(j == 0) dp[i][j] = i;
+            else if(str1[i - 1] == str2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+            else dp[i][j] = 1 + min({dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]});
+        }
+    }
+    memo[{str1, str2}] = dp[n][m];
+    return dp[n][m];
+}
+
+vector<string>& sortByEditDistance(vector<string> &arr, string key) {
+    TimePoint start = chrono::high_resolution_clock::now();
+	sort(arr.begin(), arr.end(), [key](string a, string b) {
+        return editDistance(a, key) < editDistance(b, key);
+    });
+    Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
+	qDebug() << "sort by edit distance took" << elapsedSeconds.count() << " seconds (" << arr.size() << "elements )";
+    return arr;
 }
 
 const int minClosestMatchesSize = 3;
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
 template<> vector<string> RedBlackTree<string>::closestMatches(string key, int maxTries) {
-    if(size() <= minClosestMatchesSize) return keys();
-    vector<string> keys;
+    if(size() <= minClosestMatchesSize) return values();
+    vector<string> values;
     string minimum = key, maximum = key;
     int i = key.length() - 1;
     int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
-    while(keys.size() < minClosestMatchesSize && i != 0) {
+    while(values.size() < minClosestMatchesSize && i != 0) {
         // az i.-ik karaktert átállítja 0-re és 255-re
         // így a 0 - i-1. karakterek közti kulcsokat keressük
         minimum[i] = 0;
         maximum[i] = 255;
-        keys = keysBetween(minimum, maximum);
+        values = valuesBetween(minimum, maximum);
         i--;
         if(++t == maxTries) break;
     }
-    if(keys.size() <= minClosestMatchesSize) return keys;
-    vector<string> newKeys;
-    int sizeDifference = 0;
-    // ha több mint 3 kulcsot kaptunk, azokat térítjük vissza
-    // amelyeknek a hossza a legközelebb van a keresett kulcshoz
-    while(newKeys.size() < minClosestMatchesSize) {
-        for(string &str : keys) {
-            if(abs((int)str.length() - (int)key.length()) == sizeDifference) {
-                newKeys.push_back(str);
-            }
-        }
-        sizeDifference++;
-    }
-    return newKeys;
+
+    int maxValues = 1000;
+    if(values.size() > maxValues) values.resize(maxValues);
+
+    return sortByEditDistance(values, key);
 }
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
 template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {
-    if(size() <= minClosestMatchesSize) return keys();
-    vector<T> keys;
+    if(size() <= minClosestMatchesSize) return values();
+    vector<T> values;
     T minimum = key, maximum = key;
     T i = static_cast<T>(0);
     int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
-    while(keys.size() < minClosestMatchesSize) {
+    while(values.size() < minClosestMatchesSize) {
         minimum -= i;
         maximum += i;
         i++;
         t++;
-        keys = keysBetween(minimum, maximum);
+        values = valuesBetween(minimum, maximum);
         if(t == maxTries) break;
     }
-    return keys;
+    return values;
 }
 
 template<typename T> vector<T> rbt::closestMatches(T key) {

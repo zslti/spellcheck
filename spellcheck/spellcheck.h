@@ -54,12 +54,13 @@ public:
     void destroy();
 };
 
+extern QString popupSelectedText;
 class Popup {
 public:
     class Button {
     public:
         QString text;
-        function<void(int, int, QString)> onClick;
+        function<void()> onClick;
         bool isHighlighted;
         bool hasTopSeparator;
         bool hasBottomSeparator;
@@ -70,8 +71,9 @@ public:
     QLabel* subtitle;
     QPushButton* closeButton;
     vector<QPushButton*> buttons;
+    int selectedIndex;
 
-    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons, int buttonHeight);
+    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons, int buttonHeight, bool isOperableWithArrowKeys);
     ~Popup();
 };
 
@@ -104,6 +106,10 @@ public slots:
     void updateBottomBarGeometry();
     void detectLanguage();
     void onCursorChanged();
+    void handleArrow(bool direction);
+    void handleArrowDown();
+    void handleArrowUp();
+    void acceptPopupSelection();
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;

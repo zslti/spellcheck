@@ -4,6 +4,8 @@
 #include "spellcheck.h"
 
 bool justSwithedFile = false;
+bool acceptingPopupSelection = false;
+QString popupSelectedText = "";
 
 FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) : errors() {
     this->button = button;
@@ -24,7 +26,9 @@ void spellcheck::destroyPopup() {
 	this->popup = nullptr;
 }
 
-Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Popup::Button> buttons, int buttonHeight = 30) {
+Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Popup::Button> buttons, int buttonHeight = 30, bool isOperableWithArrowKeys = false) {
+    this->selectedIndex = 0;
+    
     closeButton = new QPushButton(parent);
     QObject::connect(closeButton, &QPushButton::clicked, [=]() {parent->destroyPopup();});
 
@@ -50,6 +54,7 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
 
     int maxWidth = max(titleWidth, subtitleWidth);
 
+    bool selectionDone = false;
 	for(int i = 0; i < buttons.size(); i++) {
     	QPushButton* button = new QPushButton(buttons[i].text, background);
         button->setStyleSheet(buttons[i].isHighlighted ? style::popupButtonHighlighted : style::popupButton);
@@ -57,10 +62,23 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
         if(buttons[i].hasBottomSeparator) button->setStyleSheet(button->styleSheet() + style::popupButtonWithBottomSeparator);
     	button->show();
     	QObject::connect(button, &QPushButton::clicked, [=]() {
-            buttons[i].onClick(x, y, "");
+            buttons[i].onClick();
         });
     	this->buttons.push_back(button);
         maxWidth = max(maxWidth, button->sizeHint().width());
+       
+        qDebug() << "acceptingPopupSelection:" << acceptingPopupSelection;
+        if(isOperableWithArrowKeys && button->text() == popupSelectedText && (button->text() != "Add to dictionary" || acceptingPopupSelection)) {
+        	button->setStyleSheet(style::popupButtonHighlighted);
+			this->selectedIndex = i;
+			selectionDone = true;
+            acceptingPopupSelection = false;
+        }
+    }
+
+    if(isOperableWithArrowKeys && !selectionDone && buttons.size() != 0 && this->buttons[0]->text() != "Add to dictionary") {
+        this->buttons[0]->setStyleSheet(style::popupButtonHighlighted);
+        popupSelectedText = this->buttons[0]->text();
     }
 
     maxWidth += popupWidthPadding;
@@ -183,6 +201,20 @@ void spellcheck::onCursorChanged() {
     // ha kijelöljük a szöveget, ne csináljon semmit, arra sokszor hívódik meg
     if(textEdit->textCursor().selectedText().length() > 0) return;
     
+    QTextCursor cursor = textEdit->textCursor();
+    QChar currentChar = textEdit->toPlainText().at(cursor.position() - 1);
+    if(currentChar == '\x9') { // tab
+        Error error = getErrorAt(textEdit->textCursor().position() - 1, getText(), focusedFile->errors);
+        if(error.type == none) return;
+    	if(textEdit->toPlainText().count('\x9') > QString::fromStdString(oldText).count('\x9')) {
+            QTextCursor c = textEdit->textCursor();
+            c.setPosition(cursor.position() - 1);
+            c.setPosition(cursor.position(), QTextCursor::KeepAnchor);
+            c.removeSelectedText();
+            acceptPopupSelection();
+        }
+    }
+
     if(oldText != textEdit->toPlainText().toStdString()) {
         if(currentDictionary == autoDetect) detectLanguage();
         focusedFile->detectErrors(textEdit->toPlainText());
@@ -195,11 +227,10 @@ void spellcheck::onCursorChanged() {
     if(error.type == none) return;
     error.getSuggestions();
 
-    QTextCursor cursor = textEdit->textCursor();
     QRect cursorRect = textEdit->cursorRect(cursor);
     vector<Popup::Button> buttons;
     for(string &suggestion : error.suggestions) {
-        buttons.push_back({QString::fromStdString(suggestion), [=](int _, int __, QString ___) {
+        buttons.push_back({QString::fromStdString(suggestion), [=]() {
             QTextCursor c = textEdit->textCursor();
             c.setPosition(error.startIndex);
             c.setPosition(error.endIndex, QTextCursor::KeepAnchor);
@@ -210,7 +241,21 @@ void spellcheck::onCursorChanged() {
             destroyPopup();
         }}); 
     }
-    popup = new Popup(this, cursorRect.x(), cursorRect.y() + 50, "", "", buttons, 25);
+
+    if(error.type == invalidWord) {
+        int dict = getCurrentDictionary();
+    	buttons.push_back({"Add to dictionary", [=]() {
+            dictionaries[dict].words.insert(error.text.toStdString());
+            dictionaries[dict].changed = true;
+            focusedFile->detectErrors(getText());
+            underlineErrors();
+            updateBottomBarGeometry();
+            destroyPopup();
+        }, false, true}); 
+        
+    }
+
+    popup = new Popup(this, cursorRect.x(), cursorRect.y() + 50, "", "", buttons, 25, true);
 }
 
 spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
@@ -229,6 +274,11 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     connect(textEdit, &QTextEdit::textChanged, this, &spellcheck::onTextChanged);
     connect(textEdit, &QTextEdit::cursorPositionChanged, this, &spellcheck::onCursorChanged);
     connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_S), this), &QShortcut::activated, this, &spellcheck::saveFile);
+    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Down), this), &QShortcut::activated, this, &spellcheck::handleArrowDown);
+    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Up), this), &QShortcut::activated, this, &spellcheck::handleArrowUp);
+    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Period), this), &QShortcut::activated, this, &spellcheck::acceptPopupSelection);
+    connect(new QShortcut(QKeySequence(Qt::CTRL + Qt::Key_Tab), this), &QShortcut::activated, this, &spellcheck::acceptPopupSelection);
+    
     QFont font = textEdit->font();
     font.setPointSize(10);
     textEdit->setFont(font);
@@ -253,7 +303,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         textEdit->moveCursor(QTextCursor::Start);
 
         vector<Popup::Button> buttons;
-        buttons.push_back({"Auto detect", [=](int _, int __, QString ___) {
+        buttons.push_back({"Auto detect", [=]() {
             currentDictionary = autoDetect;
             detectLanguage();
 			focusedFile->detectErrors(getText());
@@ -265,7 +315,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         // szótárak gombjai
         for(int i = 0; i < dictionaries.size(); i++) {
             QString dictionaryName = QString::fromStdString(getFileName(dictionaries[i].path, false));
-            buttons.push_back({dictionaryName, [=](int _, int __, QString ___) {
+            buttons.push_back({dictionaryName, [=]() {
 				currentDictionary = i;
                 focusedFile->detectErrors(getText());
 				underlineErrors();
@@ -274,7 +324,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 			}, i == currentDictionary});
         }
 
-        buttons.push_back({"Add new dictionary", [=](int _, int __, QString ___) {
+        buttons.push_back({"Add new dictionary", [=]() {
             QString path = QFileDialog::getOpenFileName(this, "Open dictionary");
             if(path.isEmpty()) return;
             ifstream file(path.toStdString());
@@ -541,6 +591,11 @@ void spellcheck::saveCurrentSession() {
     ofstream file2("data/dictionaries.txt");
     file2 << currentDictionary << "\n";
     for(Dictionary &dictionary : dictionaries) {
+        if(dictionary.changed) {
+            ofstream file("data/dictionaries/" + dictionary.path);
+            dictionary.words.save(file);
+            file.close();
+        }
 		file2 << dictionary.path << "|";
 	}
 }
@@ -579,5 +634,33 @@ int spellcheck::keepBetween(int value, int min, int max) {
 	if(value < min) return min;
 	if(value > max) return max;
 	return value;
+}
+
+void spellcheck::handleArrow(bool direction) {
+    if(popup == nullptr) return;
+    popup->selectedIndex = keepBetween(direction ? --popup->selectedIndex : ++popup->selectedIndex, 0, popup->buttons.size() - 1);
+    for(QPushButton* button : popup->buttons) {
+        button->setStyleSheet(button == popup->buttons[popup->selectedIndex] ? style::popupButtonHighlighted : style::popupButton);
+        if(button->text() == "Add to dictionary") button->setStyleSheet(button->styleSheet() + style::popupButtonWithTopSeparator);
+    }
+    QString text = popup->buttons[popup->selectedIndex]->text();
+    qDebug() << "selected index: " << popup->selectedIndex << " text: " << text;
+    popupSelectedText = text;
+    acceptingPopupSelection = (text == "Add to dictionary");
+}
+
+void spellcheck::handleArrowDown() {
+    handleArrow(false);
+}
+
+void spellcheck::handleArrowUp() {
+    handleArrow(true);
+}
+
+void spellcheck::acceptPopupSelection() {
+    acceptingPopupSelection = true;
+    qDebug() << "Accepting popup selection: " << popupSelectedText;
+	if(popup == nullptr) return;
+	popup->buttons[popup->selectedIndex]->click();
 }
 

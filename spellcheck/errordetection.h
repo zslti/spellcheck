@@ -13,6 +13,7 @@ class Dictionary {
 public:
 	RedBlackTree<string> words;
 	string path;
+	bool changed;
 
 	Dictionary();
 	Dictionary(string path);

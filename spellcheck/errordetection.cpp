@@ -49,10 +49,12 @@ Error getErrorAt(int index, QString text, vector<Error> &errors) {
 
 Dictionary::Dictionary() : words() {
 	this->path = "";
+	this->changed = false;
 }
 
 Dictionary::Dictionary(string path) : words() {
 	this->path = path;
+	this->changed = false;
 	ifstream file("data/dictionaries/" + path);
 	if(!file.good()) {
 		qDebug() << "could not open file " << path;
@@ -69,6 +71,7 @@ Dictionary::Dictionary(ifstream &file, QString fileName) : Dictionary()  {
         return;
     }
     this->words = RedBlackTree<string>(file);
+	this->changed = false;
 	qDebug() << "Dictionary loaded: " << this->words.size() << " words";
 	string path = "data/dictionaries/" + fileName.toStdString() + ".dict";
 	ofstream out(path);
