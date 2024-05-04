@@ -7,7 +7,12 @@
 bool justSwithedFile = false;
 bool acceptingPopupSelection = false;
 QString popupSelectedText = "";
-Settings settings = {false};
+Settings settings;
+
+Settings::Settings() {
+    this->autoCorrect = true;
+	errorTypes[ErrorType::invalidWord] = ErrorTypeSetting("Invalid words");
+}
 
 FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) : errors() {
     this->button = button;
@@ -198,7 +203,7 @@ void spellcheck::updateBottomBarGeometry() {
     int autoCorrectButtonWidth = autoCorrectButton->sizeHint().width();
     autoCorrectButton->setGeometry(x - dictionaryButtonWidth - autoCorrectButtonWidth, y - bottomBarHeight, autoCorrectButtonWidth, bottomBarHeight);
 
-    errorsButton->setText(QString::number(focusedFile->errors.size()) + " errors");
+    errorsButton->setText(QString::number(focusedFile->errors.size()) + " error" + (focusedFile->errors.size() != 1 ? "s" : ""));
     if(focusedFile->errorDetectionTime != -1) {
     	errorsButton->setText(errorsButton->text() + " (" + QString::number(focusedFile->errorDetectionTime) + " ms)");
     }
@@ -371,6 +376,27 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 
     errorsButton = new QPushButton("0 errors", this);
     errorsButton->setStyleSheet(style::bottomBarButton);
+    connect(errorsButton, &QPushButton::clicked, this, [=]() {
+		destroyPopup();
+
+        // az elejére visszük a kurzort, mert onCursorChange-en lesz destroyolva a popup, 
+        // és ha oda kattintanánk ahol volt eddig, akkor nem fut le az event
+        textEdit->moveCursor(QTextCursor::Start);
+		vector<Popup::Button> buttons;
+
+        for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
+            buttons.push_back({type.second.name, [=]() {
+				settings.errorTypes[type.first].enabled = !settings.errorTypes[type.first].enabled;
+				focusedFile->detectErrors(getText());
+				underlineErrors();
+				updateBottomBarGeometry();
+				destroyPopup();
+                errorsButton->click();
+			}, type.second.enabled});
+		}
+		QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
+		popup = new Popup(this, 0, cursor.y(), "Errors", "Choose the type of errors to detect", buttons);
+	});
 
     if(currentDictionary == -1) detectLanguage();
     updateBottomBarGeometry();
@@ -493,7 +519,7 @@ vector<string> spellcheck::getFilesFromLastSession() {
 
 void spellcheck::restoreDefaultSettings() {
 	ofstream file("data/settings.txt");
-	file << "0";
+	file << "0 1";
 	file.close();
 }
 
@@ -502,7 +528,7 @@ void spellcheck::restoreLastSession() {
     ifstream settingsFile("data/settings.txt");
     if(!settingsFile.good()) restoreDefaultSettings();
     else {
-        settingsFile >> settings.autoCorrect;
+        settingsFile >> settings.autoCorrect >> settings.errorTypes[invalidWord].enabled;
     }
 
     // szótárak betöltése
@@ -628,7 +654,7 @@ void spellcheck::addFile() {
 void spellcheck::saveCurrentSession() {
     // beállítások mentése
     ofstream settingsFile("data/settings.txt");
-    settingsFile << settings.autoCorrect;
+    settingsFile << settings.autoCorrect << " " << settings.errorTypes[invalidWord].enabled;
 
     // nyitott fileok mentése
     ofstream file("data/lastsession.txt");

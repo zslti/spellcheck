@@ -152,7 +152,7 @@ void FileTab::detectErrors(QString text) {
 	int dict = getCurrentDictionary();
 
 	// helytelen szó ellenőrzés
-	if(dictionaries.size() > dict) {
+	if(settings.errorTypes[invalidWord].enabled && dictionaries.size() > dict) {
 		QString word = "";
 		for(int i = 0; i < text.size(); i++) {
 			if(isSeparator(text[i])) {

@@ -25,17 +25,20 @@
 #include <QLabel>
 #include <functional>
 #include <tuple>
+#include <map>
 
 using namespace std;
 
 class Error;
 class spellcheck;
+class Settings;
 
 const int fileButtonWidth = 120;
 const int fileButtonHeight = 30;
 const int bottomBarHeight = 20;
 const int minPopupWidth = 100;
 const int popupWidthPadding = 70;
+extern Settings settings;
 
 class FileTab {
 public:
@@ -129,8 +132,20 @@ private:
     int fileTabScrollValue = 0;
 };
 
+class ErrorTypeSetting {
+public:
+    QString name;
+    bool enabled;
+
+    ErrorTypeSetting(QString name = "", bool enabled = true) : name(name), enabled(enabled) {}
+};
+
 struct Settings {
+public:
     bool autoCorrect;
+    map<int, ErrorTypeSetting> errorTypes;
+
+    Settings();
 };
 
 namespace style {
