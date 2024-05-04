@@ -143,6 +143,7 @@ public:
 struct Settings {
 public:
     bool autoCorrect;
+    bool areSuggestionsEnabled;
     map<int, ErrorTypeSetting> errorTypes;
 
     Settings();

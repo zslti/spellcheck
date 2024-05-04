@@ -27,12 +27,12 @@ Error::Error(ErrorType type = ErrorType::none, int startIndex = 0, int endIndex 
 	this->text = text;
 }
 
-void Error::getSuggestions(int dict) {
+vector<string>& Error::getSuggestions(int dict) {
 	TimePoint start = chrono::high_resolution_clock::now();
 	this->suggestions.clear();
 	if(dict == -1) dict = getCurrentDictionary();
 	if(type == invalidWord && dictionaries.size() > dict) {
-		if(this->text.size() < 2) return;
+		if(this->text.size() < 2) return this->suggestions;
 
 		TimePoint start = chrono::high_resolution_clock::now();
 		dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 5, 500, this->suggestions);
@@ -64,6 +64,15 @@ void Error::getSuggestions(int dict) {
 			if(dictionaries[dict].words.contains(word.toLower().toStdString())) this->suggestions.push_back(word.toStdString());
 		}
 
+		// ha valahova beszúrható egy betű és az valid betesszük
+		for(int i = 0; i <= this->text.size(); i++) {
+			for(const QChar &c : validChars) {
+				QString word = this->text;
+				word.insert(i, c);
+				if(dictionaries[dict].words.contains(word.toLower().toStdString())) this->suggestions.push_back(word.toStdString());
+			}
+		}
+
 		// ha a szó kettéválasztható két valid szóvá szedjük szét
 		for(int i = 0; i < this->text.size() - 1; i++) {
 			QString word1 = this->text.left(i + 1);
@@ -85,6 +94,7 @@ void Error::getSuggestions(int dict) {
 	
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
 	qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
+	return this->suggestions;
 }
 
 Error getErrorAt(int index, QString text, vector<Error> &errors) {

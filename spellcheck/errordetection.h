@@ -32,7 +32,7 @@ public:
 
 	Error(ErrorType type, int startIndex, int endIndex, QString text);
 
-	void getSuggestions(int dict = -1);
+	vector<string>& getSuggestions(int dict = -1);
 };
 
 extern vector<Dictionary> dictionaries;
