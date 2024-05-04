@@ -476,7 +476,7 @@ template<typename T> rbt* rbt::load(ifstream &file) {
 }
 
 // belerakja arr-ba a this részfa kulcsait növekvő sorrenden (inorder bejárás)
-template<typename T> void rbt::Node::values(vector<T>& arr) {
+template<typename T> void rbt::Node::values(vector<T> &arr) {
     if(this->left != nullptr) this->left->values(arr);
     arr.push_back(this->value);
     if(this->right != nullptr) this->right->values(arr);
@@ -492,7 +492,7 @@ template<typename T> vector<T> rbt::values() {
 
 // belerakja arr-ba a this részfa kulcsait, amelyek a minimum és maximum között vannak
 // növekvő sorrenden (inorder bejárás)
-template<typename T> void rbt::Node::valuesBetween(vector<T> &values, T& minimum, T& maximum) {
+template<typename T> void rbt::Node::valuesBetween(vector<T> &values, T &minimum, T &maximum) {
     stack<Node*> stack;
     Node* currentNode = this;
 
@@ -532,53 +532,74 @@ template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum) {
     return valuesBetween(minimum, maximum, INT_MAX);
 }
 
+template<typename T> void rbt::valuesBetween(T minimum, T maximum, int maxValues, vector<T> &values) {
+	if(isEmpty()) return;
+    if(minimum > maximum) swap(minimum, maximum);
+    this->root->valuesBetween(values, minimum, maximum);
+    if(values.size() > maxValues) values.resize(maxValues);
+}
+
 const int minClosestMatchesSize = 3;
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
 template<> vector<string> RedBlackTree<string>::closestMatches(string key, int maxTries, int maxValues) {
-    if(size() <= minClosestMatchesSize) return values();
-    vector<string> values;
+    vector<string> closestMatches;
+    this->closestMatches(key, maxTries, maxValues, closestMatches);
+    return closestMatches;
+}
+
+template<> void RedBlackTree<string>::closestMatches(string key, int maxTries, int maxValues, vector<string> &closestMatches) {
+    if(size() <= minClosestMatchesSize) {
+        closestMatches = values();
+        return;
+    }
     string minimum = key, maximum = key;
     int i = key.length() - 1;
     int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
-    while(values.size() < minClosestMatchesSize && i != 0) {
+    while(closestMatches.size() < minClosestMatchesSize && i > 0) {
         // az i.-ik karaktert átállítja 0-re és 255-re
         // így a 0 - i-1. karakterek közti kulcsokat keressük
         minimum[i] = 0;
         maximum[i] = 255;
-        values = valuesBetween(minimum, maximum, maxValues);
+        valuesBetween(minimum, maximum, maxValues, closestMatches);
         i--;
-        if(++t == maxTries) break;
+        if(t == maxTries) break;
     }
 
-    if(values.size() > maxValues) values.resize(maxValues);
+    if(closestMatches.size() > maxValues) closestMatches.resize(maxValues);
 
-    return sortByEditDistance(values, key);
+    sortByRelevance(closestMatches, key);
+}
+
+template<typename T> vector<T> rbt::closestMatches(T key, int maxTries, int maxValues) {
+    vector<T> closestMatches;
+    this->closestMatches(key, maxTries, maxValues, closestMatches);
+    return closestMatches;
 }
 
 // visszatéríti a legközelebbi értékeket a megadotthoz
-template<typename T> vector<T> rbt::closestMatches(T key, int maxTries, int maxValues) {
-    if(size() <= minClosestMatchesSize) return values();
-    vector<T> values;
+template<typename T> void rbt::closestMatches(T key, int maxTries, int maxValues, vector<T> &closestMatches) {
+    if(size() <= minClosestMatchesSize) {
+        closestMatches = values();
+        return;
+    }
     T minimum = key, maximum = key;
     T i = static_cast<T>(0);
     int t = 0;
 
     // amíg nincs legalább 3 elem minimum és maximum között
     // csökkenti a minimumot és növeli a maximumot
-    while(values.size() < minClosestMatchesSize) {
+    while(closestMatches.size() < minClosestMatchesSize) {
         minimum -= i;
         maximum += i;
         i++;
         t++;
-        values = valuesBetween(minimum, maximum, maxValues);
+        valuesBetween(minimum, maximum, maxValues, closestMatches);
         if(t == maxTries) break;
     }
-
-    return values;
 }
 
 template<typename T> vector<T> rbt::closestMatches(T key, int maxTries) {

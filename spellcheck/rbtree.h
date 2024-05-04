@@ -59,9 +59,11 @@ public:
     vector<T> values();
     vector<T> valuesBetween(T, T);
     vector<T> valuesBetween(T, T, int);
+    void valuesBetween(T, T, int, vector<T>&);
     vector<T> closestMatches(T);
     vector<T> closestMatches(T, int);
     vector<T> closestMatches(T, int, int);
+    void closestMatches(T, int, int, vector<T>&);
 
     RedBlackTree();
     RedBlackTree(rbt&);

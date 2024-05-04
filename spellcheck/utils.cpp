@@ -11,16 +11,19 @@ using namespace std;
 typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
 typedef chrono::duration<double> Duration;
 
-map<char, char> diacritics = {
-	{'ü', 'u'}, {'ó', 'o'}, {'ő', 'o'}, {'ú', 'u'}, {'ű', 'u'}, {'é', 'e'}, {'á', 'a'}, 
-    {'ă', 'a'}, {'î', 'i'}, {'â', 'a'}, {'ș', 's'}, {'ț', 't'},
+map<string, char> diacritics = {
+	{"ü", 'u'}, {"ó", 'o'}, {"ő", 'o'}, {"ú", 'u'}, {"ű", 'u'}, {"é", 'e'}, {"á", 'a'}, 
+    {"ă", 'a'}, {"î", 'i'}, {"â", 'a'}, {"ș", 's'}, {"ț", 't'},
 };
 
 string normalize(string str) {
-	for(char &c : str) {
-    	if(diacritics.find(c) != diacritics.end()) c = diacritics[c];
+    for(int i = 0; i < str.length(); i++) {
+        if(diacritics.find(str.substr(i, 2)) != diacritics.end()) {
+        	str[i] = diacritics[str.substr(i, 2)];
+        	str.erase(i + 1, 1);
+        }
     }
-	return str;
+	return str.c_str();
 }
 
 vector<string>& removeDuplicates(vector<string> &arr) {
@@ -33,8 +36,8 @@ int editDistance(string str1, string str2) {
     static map<pair<string, string>, int> memo;
     if(memo.find({str1, str2}) != memo.end()) return memo[{str1, str2}];
 
-    string normalizedStr1 = normalize(str1);
-    string normalizedStr2 = normalize(str2);
+    string normalizedStr1 = normalize(str1).c_str();
+    string normalizedStr2 = normalize(str2).c_str();
 
 	int n = normalizedStr1.length();
 	int m = normalizedStr2.length();
@@ -51,17 +54,34 @@ int editDistance(string str1, string str2) {
     }
     memo[{str1, str2}] = dp[n][m];
 
-    qDebug() << "edit distance of: " << str1.c_str() << " and " << str2.c_str() << " is " << dp[n][m];
+    //qDebug() << "edit distance of: " << normalizedStr1 << " and " << normalizedStr2 << " is " << dp[n][m];
     return dp[n][m];
 }
 
-vector<string>& sortByEditDistance(vector<string> &arr, string key) {
+vector<string>& sortByRelevance(vector<string> &arr, string key) {
     TimePoint start = chrono::high_resolution_clock::now();
+
 	sort(arr.begin(), arr.end(), [key](string a, string b) {
+        bool aStartsWithKey = a.find(key) == 0;
+        bool bStartsWithKey = b.find(key) == 0;
+
+        // ha mindkettő a kulccsal kezdődik, akkor edit distance alapján rendezünk
+        if(aStartsWithKey && bStartsWithKey) return editDistance(a, key) < editDistance(b, key);
+
+        // ha az egyik a kulccsal kezdődik, a másik nem, akkor az elsőt rakjuk előrébb
+        if(aStartsWithKey && !bStartsWithKey) return true;
+        if(!aStartsWithKey && bStartsWithKey) return false;
+
+        // ha az edit distance megegyezik, akkor a hosszabb szót rakjuk előrébb 
+        // (pl. kulcsszó: elégg, akkor az eléggé legyen hamarabb mint elég)
+        if(editDistance(a, key) == editDistance(b, key)) return a.length() > b.length();
+
+        // különben edit distance alapján rendezünk
         return editDistance(a, key) < editDistance(b, key);
     });
+
     Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	qDebug() << "sort by edit distance took" << elapsedSeconds.count() << " seconds (" << arr.size() << "elements )";
+	//qDebug() << "sort by relevance took" << elapsedSeconds.count() << " seconds (" << arr.size() << "elements )";
     return arr;
 }
 
@@ -70,7 +90,7 @@ string maintainCase(string str, string caseToMaintain) {
      	caseToMaintain += caseToMaintain[caseToMaintain.length()];
     }
     if(caseToMaintain.length() > str.length()) {
-    		caseToMaintain = caseToMaintain.substr(0, str.length());
+    	caseToMaintain = caseToMaintain.substr(0, str.length());
     }
 
 	for(int i = 0; i < caseToMaintain.length(); i++) {

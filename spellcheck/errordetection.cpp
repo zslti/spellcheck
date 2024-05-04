@@ -20,19 +20,22 @@ int getCurrentDictionary() {
 	return currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary;
 }
 
-Error::Error(ErrorType type, int startIndex, int endIndex, QString text) {
+Error::Error(ErrorType type = ErrorType::none, int startIndex = 0, int endIndex = 0, QString text = "") {
 	this->type = type;
 	this->startIndex = startIndex;
 	this->endIndex = endIndex;
 	this->text = text;
 }
 
-void Error::getSuggestions() {
+void Error::getSuggestions(int dict) {
 	TimePoint start = chrono::high_resolution_clock::now();
-	int dict = getCurrentDictionary();
+	this->suggestions.clear();
+	if(dict == -1) dict = getCurrentDictionary();
 	if(type == invalidWord && dictionaries.size() > dict) {
+		if(this->text.size() < 2) return;
+
 		TimePoint start = chrono::high_resolution_clock::now();
-		this->suggestions = dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 10, 100);
+		dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 5, 500, this->suggestions);
 		Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
 		qDebug() << "getting closest matches took " << elapsedSeconds.count() << " seconds";
 
@@ -71,7 +74,7 @@ void Error::getSuggestions() {
 		}
 
 		removeDuplicates(this->suggestions);
-		sortByEditDistance(this->suggestions, this->text.toStdString());
+		sortByRelevance(this->suggestions, this->text.toStdString());
 
 		for(string &suggestion : this->suggestions) {
 			suggestion = maintainCase(suggestion, this->text.toStdString());			

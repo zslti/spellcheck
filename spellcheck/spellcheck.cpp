@@ -2,6 +2,7 @@
 #include <future>
 #include <QtConcurrent/QtConcurrentRun>
 #include "spellcheck.h"
+#include "utils.h"
 
 bool justSwithedFile = false;
 bool acceptingPopupSelection = false;
@@ -71,7 +72,6 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
     	this->buttons.push_back(button);
         maxWidth = max(maxWidth, button->sizeHint().width());
        
-        qDebug() << "acceptingPopupSelection:" << acceptingPopupSelection;
         if(isOperableWithArrowKeys && button->text() == popupSelectedText && (button->text() != "Add to dictionary" || acceptingPopupSelection)) {
         	button->setStyleSheet(style::popupButtonHighlighted);
 			this->selectedIndex = i;
@@ -699,6 +699,7 @@ void spellcheck::handleArrow(bool direction) {
     qDebug() << "selected index: " << popup->selectedIndex << " text: " << text;
     popupSelectedText = text;
     acceptingPopupSelection = (text == "Add to dictionary");
+    qDebug() << "elég normalized: " << normalize("őúéá").c_str();
 }
 
 void spellcheck::handleArrowDown() {
@@ -710,16 +711,18 @@ void spellcheck::handleArrowUp() {
 }
 
 void spellcheck::acceptPopupSelection() {
-    acceptingPopupSelection = true;
-    qDebug() << "Accepting popup selection: " << popupSelectedText;
 	if(popup == nullptr) return;
+    if(popup->buttons.size() == 0) {destroyPopup(); return;};
+    if(popup->buttons.size() == 1 && popup->buttons[0]->text() == "Add to dictionary") {destroyPopup(); return;};
+    acceptingPopupSelection = true;
 	popup->buttons[popup->selectedIndex]->click();
 }
 
 void spellcheck::insertSpaceWithoutAutoCorrect() {
+    bool oldAutoCorrect = settings.autoCorrect;
     settings.autoCorrect = false;
 	QTextCursor cursor = textEdit->textCursor();
 	cursor.insertText(" ");
-    settings.autoCorrect = true;
+    settings.autoCorrect = oldAutoCorrect;
     updateBottomBarGeometry();
 }
