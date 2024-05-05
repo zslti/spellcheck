@@ -12,6 +12,9 @@ Settings settings;
 Settings::Settings() {
     this->autoCorrect = this->areSuggestionsEnabled = true;
 	errorTypes[ErrorType::invalidWord] = ErrorTypeSetting("Invalid words");
+    errorTypes[ErrorType::whitespace] = ErrorTypeSetting("Whitespace");
+    errorTypes[ErrorType::capitalization] = ErrorTypeSetting("Capitalization");
+    errorTypes[ErrorType::repeatedWords] = ErrorTypeSetting("Repeated words");
 }
 
 FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved) : errors() {
@@ -22,8 +25,12 @@ FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, str
     this->id = id;
     this->saved = saved;
     this->errorDetectionTime = -1;
+    this->suggestionsTime = -1;
+    this->errorCount = 0;
     detectErrors(QString::fromStdString(text));
 }
+
+FileTab* spellcheck::focusedFile = nullptr;
 
 void FileTab::destroy() {
 	if(button != nullptr) delete button;
@@ -46,6 +53,7 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
 	background->setStyleSheet(style::popupBackground);
 	background->show();
 
+    this->isOperableWithArrowKeys = isOperableWithArrowKeys;
 	this->title = new QLabel(title, background);
     int titleWidth = this->title->sizeHint().width();
     int titleHeight = this->title->sizeHint().height();
@@ -181,7 +189,7 @@ void spellcheck::detectLanguage() {
 }
 
 void spellcheck::updateBottomBarGeometry() {
-    if(dictionaryButton == nullptr || autoCorrectButton == nullptr || errorsButton == nullptr) return;
+    if(dictionaryButton == nullptr || autoCorrectButton == nullptr || errorsButton == nullptr || suggestionsButton == nullptr) return;
 
     if(currentDictionary != -1) {
         dictionaryButton->setText(QString::fromStdString(getFileName(dictionaries[currentDictionary].path, false)));
@@ -203,12 +211,32 @@ void spellcheck::updateBottomBarGeometry() {
     int autoCorrectButtonWidth = autoCorrectButton->sizeHint().width();
     autoCorrectButton->setGeometry(x - dictionaryButtonWidth - autoCorrectButtonWidth, y - bottomBarHeight, autoCorrectButtonWidth, bottomBarHeight);
 
-    errorsButton->setText(QString::number(focusedFile->errors.size()) + " error" + (focusedFile->errors.size() != 1 ? "s" : ""));
+    errorsButton->setText(QString::number(focusedFile->errorCount) + " error" + (focusedFile->errorCount != 1 ? "s" : ""));
     if(focusedFile->errorDetectionTime != -1) {
-    	errorsButton->setText(errorsButton->text() + " (" + QString::number(focusedFile->errorDetectionTime) + " ms)");
+    	errorsButton->setText(errorsButton->text() + " (" + QString::number(focusedFile->errorDetectionTime) + "ms)");
     }
     int errorsButtonWidth = errorsButton->sizeHint().width();
     errorsButton->setGeometry(0, y - bottomBarHeight, errorsButtonWidth, bottomBarHeight);
+    
+    if(popup != nullptr && popup->buttons.size() > 1) {
+        suggestionsButton->show();
+        suggestionsButton->setText(QString("Suggestions found in ") + QString::number(focusedFile->suggestionsTime) + QString("ms"));
+	    int suggestionsButtonWidth = suggestionsButton->sizeHint().width();
+	    suggestionsButton->setGeometry(errorsButtonWidth, y - bottomBarHeight, suggestionsButtonWidth, bottomBarHeight);
+        
+        bool isWordSuggestion = false;
+        for(QPushButton* button : popup->buttons) {
+            if(button->text() == "Add to dictionary") {
+				isWordSuggestion = true;
+				break;
+			}
+		}
+        if(!isWordSuggestion) suggestionsButton->hide();
+    } else {
+        suggestionsButton->hide();
+    }
+
+    if(suggestionsButton->geometry().right() > autoCorrectButton->geometry().left()) suggestionsButton->hide();
 }
 
 void spellcheck::onCursorChanged() {
@@ -224,7 +252,7 @@ void spellcheck::onCursorChanged() {
     QChar currentChar = textEdit->toPlainText().at(cursor.position() - 1);
     if(currentChar == '\x9' || (currentChar == ' ' && settings.autoCorrect)) { // tab
         Error error = getErrorAt(textEdit->textCursor().position() - 1, getText(), focusedFile->errors);
-        if(error.type == none) return;
+        if(error.type == none || error.text == " ") return;
     	if(textEdit->toPlainText().count('\x9') > QString::fromStdString(oldText).count('\x9') || (textEdit->toPlainText().count(' ') > QString::fromStdString(oldText).count(' ') && settings.autoCorrect)) {
             QTextCursor c = textEdit->textCursor();
             c.setPosition(cursor.position() - 1);
@@ -244,7 +272,10 @@ void spellcheck::onCursorChanged() {
     oldText = textEdit->toPlainText().toStdString();
 
     Error error = getErrorAt(textEdit->textCursor().position(), getText(), focusedFile->errors);
-    if(error.type == none) return;
+    if(error.type == none) {
+        updateBottomBarGeometry();
+        return;
+    }
     error.getSuggestions();
 
     QRect cursorRect = textEdit->cursorRect(cursor);
@@ -272,8 +303,9 @@ void spellcheck::onCursorChanged() {
             updateBottomBarGeometry();
             destroyPopup();
         }, false, true}); 
-        
     }
+
+    if(buttons.size() == 0) return;
 
     popup = new Popup(this, cursorRect.x(), cursorRect.y() + 50, "", "", buttons, 25, true);
     if(popup != nullptr && hasTextChanged) {
@@ -282,6 +314,7 @@ void spellcheck::onCursorChanged() {
         handleArrowUp(); // ez megcsinálja a highlightot
     }
 
+    updateBottomBarGeometry();
     if(!settings.areSuggestionsEnabled) popup->background->hide();
 }
 
@@ -329,6 +362,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         // az elejére visszük a kurzort, mert onCursorChange-en lesz destroyolva a popup, 
         // és ha oda kattintanánk ahol volt eddig, akkor nem fut le az event
         textEdit->moveCursor(QTextCursor::Start);
+        destroyPopup();
 
         vector<Popup::Button> buttons;
         buttons.push_back({"Auto detect", [=]() {
@@ -384,6 +418,7 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         // az elejére visszük a kurzort, mert onCursorChange-en lesz destroyolva a popup, 
         // és ha oda kattintanánk ahol volt eddig, akkor nem fut le az event
         textEdit->moveCursor(QTextCursor::Start);
+        destroyPopup();
 		vector<Popup::Button> buttons;
 
         for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
@@ -399,8 +434,10 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         
         buttons.push_back({"Fix all errors", [=]() {
             QTextCursor c = textEdit->textCursor();
-            while(focusedFile->errors.size() != 0) {
-                Error error = focusedFile->errors[0];
+            while(focusedFile->errorCount != 0) {
+                int i = 0;
+                Error error = focusedFile->errors[i];
+                while(error.type == none) error = focusedFile->errors[++i];
                 QString suggestion = QString::fromStdString(error.getSuggestions()[0]);
                 c.setPosition(error.startIndex);
                 c.setPosition(error.endIndex, QTextCursor::KeepAnchor);
@@ -424,6 +461,8 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 		popup = new Popup(this, 0, cursor.y(), "Errors", "Choose the type of errors to detect", buttons);
 	});
 
+    suggestionsButton = new QPushButton("", this);
+    suggestionsButton->setStyleSheet(style::bottomBarButton);
 
     if(currentDictionary == -1) detectLanguage();
     updateBottomBarGeometry();
@@ -546,7 +585,7 @@ vector<string> spellcheck::getFilesFromLastSession() {
 
 void spellcheck::restoreDefaultSettings() {
 	ofstream file("data/settings.txt");
-	file << "0 1 1";
+	file << "0 1 1 1 1 1";
 	file.close();
 }
 
@@ -555,7 +594,10 @@ void spellcheck::restoreLastSession() {
     ifstream settingsFile("data/settings.txt");
     if(!settingsFile.good()) restoreDefaultSettings();
     else {
-        settingsFile >> settings.autoCorrect >> settings.areSuggestionsEnabled >> settings.errorTypes[invalidWord].enabled;
+        settingsFile >> settings.autoCorrect >> settings.areSuggestionsEnabled;
+        for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
+			settingsFile >> type.second.enabled;
+		}
     }
 
     // szótárak betöltése
@@ -681,7 +723,10 @@ void spellcheck::addFile() {
 void spellcheck::saveCurrentSession() {
     // beállítások mentése
     ofstream settingsFile("data/settings.txt");
-    settingsFile << settings.autoCorrect << " " << settings.areSuggestionsEnabled << " " << settings.errorTypes[invalidWord].enabled;
+    settingsFile << settings.autoCorrect << " " << settings.areSuggestionsEnabled << " ";
+    for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
+		settingsFile << type.second.enabled << " ";
+	}
 
     // nyitott fileok mentése
     ofstream file("data/lastsession.txt");
@@ -742,7 +787,7 @@ int spellcheck::keepBetween(int value, int min, int max) {
 }
 
 void spellcheck::handleArrow(bool direction) {
-    if(popup == nullptr) return;
+    if(popup == nullptr || !popup->isOperableWithArrowKeys) return;
     popup->selectedIndex = keepBetween(direction ? --popup->selectedIndex : ++popup->selectedIndex, 0, popup->buttons.size() - 1);
     for(QPushButton* button : popup->buttons) {
         button->setStyleSheet(button == popup->buttons[popup->selectedIndex] ? style::popupButtonHighlighted : style::popupButton);

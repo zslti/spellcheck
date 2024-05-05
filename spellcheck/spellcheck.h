@@ -49,7 +49,9 @@ public:
     int id;
     bool saved;
     vector<Error> errors;
+    int errorCount;
     int errorDetectionTime;
+    int suggestionsTime;
 
     void detectErrors(QString);
 
@@ -77,6 +79,7 @@ public:
     QPushButton* closeButton;
     vector<QPushButton*> buttons;
     int selectedIndex;
+    bool isOperableWithArrowKeys;
 
     Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons, int buttonHeight, bool isOperableWithArrowKeys);
     ~Popup();
@@ -126,10 +129,12 @@ private:
     QPushButton* dictionaryButton = nullptr;
     QPushButton* autoCorrectButton = nullptr;
     QPushButton* errorsButton = nullptr;
+    QPushButton* suggestionsButton = nullptr;
     vector<FileTab> fileTabs;
-    FileTab* focusedFile = nullptr;
     Popup* popup = nullptr;
     int fileTabScrollValue = 0;
+public:
+    static FileTab* focusedFile;
 };
 
 class ErrorTypeSetting {

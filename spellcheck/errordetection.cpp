@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <chrono>
 #include <QMutex>
+#include <QRegularExpression>
 #include "errordetection.h"
 #include "utils.h"
 
@@ -28,6 +29,7 @@ Error::Error(ErrorType type = ErrorType::none, int startIndex = 0, int endIndex 
 }
 
 vector<string>& Error::getSuggestions(int dict) {
+	qDebug() << "getting suggestions for " << this->text;
 	TimePoint start = chrono::high_resolution_clock::now();
 	this->suggestions.clear();
 	if(dict == -1) dict = getCurrentDictionary();
@@ -37,7 +39,7 @@ vector<string>& Error::getSuggestions(int dict) {
 		TimePoint start = chrono::high_resolution_clock::now();
 		dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 5, 500, this->suggestions);
 		Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-		qDebug() << "getting closest matches took " << elapsedSeconds.count() << " seconds";
+		//qDebug() << "getting closest matches took " << elapsedSeconds.count() << " seconds";
 
 		// kicseréljük egyesével a betűket, ha az valid betesszük
 		for(int i = 0; i < this->text.size(); i++) {
@@ -79,6 +81,7 @@ vector<string>& Error::getSuggestions(int dict) {
 			QString word2 = this->text.right(this->text.size() - i - 1);
 			if(dictionaries[dict].words.contains(word1.toLower().toStdString()) && dictionaries[dict].words.contains(word2.toLower().toStdString())) {
 				this->suggestions.push_back(word1.toStdString() + " " + word2.toStdString());
+				this->suggestions.push_back(word1.toStdString() + "-" + word2.toStdString());
 			}
 		}
 
@@ -88,12 +91,16 @@ vector<string>& Error::getSuggestions(int dict) {
 		for(string &suggestion : this->suggestions) {
 			suggestion = maintainCase(suggestion, this->text.toStdString());			
 		}
+	} else {
+		suggestions.push_back(this->text.toStdString());
 	}
 
 	if(this->suggestions.size() > 5) this->suggestions.resize(5);
 	
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
+	//qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
+	spellcheck::focusedFile->suggestionsTime = elapsedSeconds.count() * 1000;
+	qDebug() << "suggestions: " << this->suggestions.size();
 	return this->suggestions;
 }
 
@@ -150,14 +157,14 @@ pair<QString, QString> Error::getStr() {
 }
 
 bool isSeparator(QChar c) {
-	QString separators = " \n\t.,?!()[]{}:;\"'`";
+	QString separators = " \n\t.,?!()[]{}:;-\"'`";
 	return separators.contains(c);
 }
 
 void FileTab::detectErrors(QString text) {
 	TimePoint start = chrono::high_resolution_clock::now();
 	this->errors.clear();
-	text += " ";
+	text += "\n";
 
 	int dict = getCurrentDictionary();
 
@@ -175,9 +182,81 @@ void FileTab::detectErrors(QString text) {
 			}
 		}
 	}
+
+	if(settings.errorTypes[whitespace].enabled) {
+		// punktuáció előtti szóközök
+		QString punctuation = ".,?!:;";
+		for(int i = 0; i < text.size() - 1; i++) {
+			if(text[i] == ' ' && punctuation.contains(text[i + 1])) {
+				int start = i;
+				while(start > 0 && text[start - 1] == ' ') start--;
+				this->errors.push_back(Error(whitespace, start, i + 2, QString(text[i + 1])));
+			}
+		}
+
+		// többszörös szóközök
+		for(int i = 0; i < text.size(); ++i) {
+			if(text[i] == ' ') {
+				int start = i, end = i;
+				while(end < text.size() && text[end] == ' ') end++;
+
+				if(--end > start) this->errors.push_back(Error(whitespace, start, end + 1, " "));
+				i = end;
+			}
+		}
+	}
+
+	if(settings.errorTypes[capitalization].enabled) {
+		// kisbetűve kezdődő szavak amik naggyal kéne kezdődjenek
+		QString punctuation = ".?!";
+		QString word = "";
+		for(int i = 0; i < text.size(); i++) {
+			if(isSeparator(text[i])) {
+			 	if(word.length() == 0) continue;
+				int wordStart = i - word.length();
+
+				bool shouldStartWithCapital = false;
+				if(wordStart == 0) shouldStartWithCapital = true;
+				else if(wordStart >= 2 && text[wordStart - 1] == ' ' && punctuation.contains(text[wordStart - 2])) shouldStartWithCapital = true;
+
+				if(word[0].isLower() && shouldStartWithCapital) {
+					word[0] = word[0].toUpper();
+					this->errors.push_back(Error(capitalization, wordStart, i, word));
+				}
+			 	word = "";
+			} else {
+			 	word += text[i];
+			}
+		}
+	}
+
+	if(settings.errorTypes[repeatedWords].enabled) {
+		// egymás után kétszer ugyanaz a szó
+		QString word = "", prevWord = "";
+		int prevWordStart = 0;
+		for(int i = 0; i < text.size(); i++) {
+			if(isSeparator(text[i])) {
+				if(word.length() == 0) continue;
+				if(word == prevWord) this->errors.push_back(Error(repeatedWords, prevWordStart, i, word));
+				prevWord = word;
+				prevWordStart = i - word.length();
+				word = "";
+			} else {
+				word += text[i];
+			}
+		}
+	}
 	
+	// vegyük ki a hibák közül a hamis pozitívakat
+	this->errorCount = this->errors.size();
+	for(Error &error : this->errors) {
+		QRegularExpression numberOrPhoneNumber("^\\+*[0-9]+$");
+
+		vector<QRegularExpression> falsePositives = {numberOrPhoneNumber};
+		for(QRegularExpression &regex : falsePositives) if(regex.match(error.text).hasMatch()) {errorCount--; error.type = none;};
+	}
+
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	qDebug() << "Error detection took " << elapsedSeconds.count() << " seconds";
 	this->errorDetectionTime = elapsedSeconds.count() * 1000;
 }
 
@@ -203,9 +282,8 @@ void spellcheck::underlineErrors() {
 	QTextCharFormat format;
 	format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
 	format.setUnderlineColor(QColor(style::accentColor));
-	//for(Error &error : focusedFile->errors) {
-	for(int i = 0; i < focusedFile->errors.size(); i++) {
-		Error &error = focusedFile->errors[i];
+	for(Error &error : focusedFile->errors) {
+		if(error.type == none) continue;
 		cursor.setPosition(error.startIndex);
 		cursor.setPosition(error.endIndex, QTextCursor::KeepAnchor);
 		cursor.setCharFormat(format);

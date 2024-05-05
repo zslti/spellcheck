@@ -7,7 +7,7 @@
 
 using namespace std;
 
-enum ErrorType {invalidWord, none};
+enum ErrorType {none, invalidWord, whitespace, capitalization, repeatedWords};
 
 class Dictionary {
 public:

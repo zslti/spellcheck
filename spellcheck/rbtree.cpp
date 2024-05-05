@@ -566,6 +566,7 @@ template<> void RedBlackTree<string>::closestMatches(string key, int maxTries, i
         maximum[i] = 255;
         valuesBetween(minimum, maximum, maxValues, closestMatches);
         i--;
+        t++;
         if(t == maxTries) break;
     }
 
