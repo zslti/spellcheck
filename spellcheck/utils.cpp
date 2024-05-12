@@ -4,7 +4,6 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <QDebug>
 
 using namespace std;
 
@@ -54,7 +53,6 @@ int editDistance(string str1, string str2) {
     }
     memo[{str1, str2}] = dp[n][m];
 
-    //qDebug() << "edit distance of: " << normalizedStr1 << " and " << normalizedStr2 << " is " << dp[n][m];
     return dp[n][m];
 }
 
@@ -81,7 +79,6 @@ vector<string>& sortByRelevance(vector<string> &arr, string key) {
     });
 
     Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	//qDebug() << "sort by relevance took" << elapsedSeconds.count() << " seconds (" << arr.size() << "elements )";
     return arr;
 }
 

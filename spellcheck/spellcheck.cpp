@@ -113,7 +113,6 @@ Popup::Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, 
 }
 
 Popup::~Popup() {
-    qDebug() << "Popup destroyed";
     delete title;
     delete subtitle;
     for(QPushButton* button : buttons) {
@@ -476,9 +475,6 @@ void spellcheck::onTextChanged() {
     	return;
     }
 
-    QString text = textEdit->toPlainText();
-    qDebug() << "Text changed:" << text;
-    
     if(focusedFile != nullptr && focusedFile->saved) {
     	focusedFile->saved = false;
     	focusedFile->button->setText(focusedFile->button->text() + "*");
@@ -486,7 +482,6 @@ void spellcheck::onTextChanged() {
 }
 
 void spellcheck::resizeEvent(QResizeEvent* event) {
-    qDebug() << "Resized!";
     int x = event->size().width();
     int y = event->size().height();
     textEdit->setGeometry(0, fileButtonHeight, x, y - fileButtonHeight - bottomBarHeight);
@@ -612,19 +607,15 @@ void spellcheck::restoreLastSession() {
             dictionaries[dictionaries.size() - 1].path = path;
             ifstream file("data/dictionaries/" + path);
             if(!file.good()) {
-        	    qDebug() << "could not open file " << path;
-        	    return;
+        	    continue;
             }
             dictionaries[dictionaries.size() - 1].words.load(file);
             file.close();
-            qDebug() << "test " << dictionaries[dictionaries.size() - 1].words.contains("banana");
         }
-        qDebug() << "Dictionaries loaded";
     }
 
     // fileok betöltése
 	vector<string> files = getFilesFromLastSession();
-    qDebug() << "Files from last session: " << files;
     if(files.empty()) files.push_back(getNewUntitledFile());
 	vector<FileTab> tabs;
     for(int i = 0; i < files.size(); i++) {
@@ -666,8 +657,6 @@ void spellcheck::saveFile() {
 }
 
 void spellcheck::closeFile(int fileID) {
-    qDebug() << "Closing file with id: " << fileID;
-
 	// kitöröljük a jelenlegi file gombot
     int i = 0;
     int deletedI = -1;
@@ -675,8 +664,6 @@ void spellcheck::closeFile(int fileID) {
         if(fileTabs[i].id == fileID) {
             // ha a törölt file volt a fókuszban, akkor az elsőt állítjuk fókuszba
             bool wasFocused = (focusedFile == &fileTabs[i] && fileTabs.size() > 1);
-            qDebug() << "was focused: " << wasFocused;
-
             deletedI = i;
 
             fileTabs[i].destroy();
@@ -771,7 +758,6 @@ string spellcheck::getNewUntitledFile() {
  }
 
 void spellcheck::addUntitledFile() {
-    qDebug() << "Adding new file";
 	string fileName = getNewUntitledFile();
     FileTab tab(fileName);
 	vector<FileTab> tabs = {tab};

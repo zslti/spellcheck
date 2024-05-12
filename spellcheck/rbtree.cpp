@@ -2,7 +2,6 @@
 #include <fstream>
 #include <vector>
 #include <typeinfo>
-#include <QDebug>
 #include <string>
 #include <stack>
 #include "rbtree.h"
@@ -41,13 +40,11 @@ template<typename T> rbt::Node::~Node() {
 }
 
 template<typename T> rbt::RedBlackTree() {
-    qDebug() << "rbt constructor";
     this->root = new Node();
     this->elements = 0;
 }
 
 template<typename T> rbt::RedBlackTree(T value) {
-    qDebug() << "rbt constructor";
     this->root = new Node(value);
     this->elements = 1;
 }
@@ -73,7 +70,6 @@ template<typename T> rbt::RedBlackTree(rbt &tree) : RedBlackTree() {
 }
 
 template<typename T> rbt::~RedBlackTree() {
-    qDebug() << "rbt destructor";
     //clear();
     //delete this->root;
 }
@@ -445,7 +441,6 @@ template<typename T> rbt* rbt::save(ofstream &file) {
 
 // betölti a fát a save metódussal elmentett fájlból
 template<typename T> rbt* rbt::load(ifstream &file) {
-    qDebug() << "calling load";
     T value, parentValue;
     bool color;
     if(this->elements != 0) clear();
@@ -471,7 +466,6 @@ template<typename T> rbt* rbt::load(ifstream &file) {
         nodes++;
     }
     this->elements = nodes;
-    qDebug() << "loaded";
     return this;
 }
 

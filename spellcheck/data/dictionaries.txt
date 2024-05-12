@@ -1,2 +1,2 @@
 -1
-English.dict|Hungarian.dict|testdictionary....dict|newdict.dict|
+Hungarian.dict|English.dict|

@@ -29,7 +29,6 @@ Error::Error(ErrorType type = ErrorType::none, int startIndex = 0, int endIndex 
 }
 
 vector<string>& Error::getSuggestions(int dict) {
-	qDebug() << "getting suggestions for " << this->text;
 	TimePoint start = chrono::high_resolution_clock::now();
 	this->suggestions.clear();
 	if(dict == -1) dict = getCurrentDictionary();
@@ -39,7 +38,6 @@ vector<string>& Error::getSuggestions(int dict) {
 		TimePoint start = chrono::high_resolution_clock::now();
 		dictionaries[dict].words.closestMatches(this->text.toLower().toStdString(), 5, 500, this->suggestions);
 		Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-		//qDebug() << "getting closest matches took " << elapsedSeconds.count() << " seconds";
 
 		// kicseréljük egyesével a betűket, ha az valid betesszük
 		for(int i = 0; i < this->text.size(); i++) {
@@ -98,9 +96,7 @@ vector<string>& Error::getSuggestions(int dict) {
 	if(this->suggestions.size() > 5) this->suggestions.resize(5);
 	
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	//qDebug() << "getting suggestions took " << elapsedSeconds.count() << " seconds";
 	spellcheck::focusedFile->suggestionsTime = elapsedSeconds.count() * 1000;
-	qDebug() << "suggestions: " << this->suggestions.size();
 	return this->suggestions;
 }
 
@@ -120,23 +116,15 @@ Dictionary::Dictionary(string path) : words() {
 	this->path = path;
 	this->changed = false;
 	ifstream file("data/dictionaries/" + path);
-	if(!file.good()) {
-		qDebug() << "could not open file " << path;
-		return;
-	}
+	if(!file.good()) return;
 	words.load(file);
 	file.close();
-	qDebug() << "Dictionary loaded: " << path;
 }
 
 Dictionary::Dictionary(ifstream &file, QString fileName) : Dictionary()  {
-    if(!file.good()) {
-        qDebug() << "could not open file ";
-        return;
-    }
+    if(!file.good()) return;
     this->words = RedBlackTree<string>(file);
 	this->changed = false;
-	qDebug() << "Dictionary loaded: " << this->words.size() << " words";
 	string path = "data/dictionaries/" + fileName.toStdString() + ".dict";
 	ofstream out(path);
 	this->words.save(out);
@@ -144,7 +132,6 @@ Dictionary::Dictionary(ifstream &file, QString fileName) : Dictionary()  {
 }
 
 Dictionary::Dictionary(const Dictionary &d) {
-	qDebug() << "Dictionary copy constructor";
 	this->words = d.words;
 	this->path = d.path;
 }
@@ -157,7 +144,7 @@ pair<QString, QString> Error::getStr() {
 }
 
 bool isSeparator(QChar c) {
-	QString separators = " \n\t.,?!()[]{}:;-\"'`";
+	QString separators = " \n\t.,?!()[]{}:;-+~=_/\"'`";
 	return separators.contains(c);
 }
 
@@ -175,6 +162,7 @@ void FileTab::detectErrors(QString text) {
 			if(isSeparator(text[i])) {
 				if(word.length() == 0) continue;
 				bool isValid = dictionaries[dict].words.contains(word.toLower().toStdString());
+				if(word.length() < 2) isValid = true; // egy darab betu legyen mindig valid
 				if(!isValid) this->errors.push_back(Error(invalidWord, i - word.length(), i, word));
 				word = "";
 			} else {
@@ -291,7 +279,6 @@ void spellcheck::underlineErrors() {
 	textEdit->blockSignals(false);
 
 	Duration elapsedSeconds = chrono::high_resolution_clock::now() - start;
-	qDebug() << "Underlining errors took " << elapsedSeconds.count() << " seconds";
 }
 
 void spellcheck::underlineErrorsLater() {
