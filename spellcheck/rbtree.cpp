@@ -1,11 +1,4 @@
-﻿#include <iostream>
-#include <fstream>
-#include <vector>
-#include <typeinfo>
-#include <string>
-#include <stack>
-#include "rbtree.h"
-#include "utils.h"
+﻿#include "rbtree.h"
 
 using namespace std;
 

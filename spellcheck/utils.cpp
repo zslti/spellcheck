@@ -1,9 +1,4 @@
 ﻿#include "utils.h"
-#include <chrono>
-#include <map>
-#include <iostream>
-#include <vector>
-#include <algorithm>
 
 using namespace std;
 
@@ -94,4 +89,52 @@ string maintainCase(string str, string caseToMaintain) {
     	str[i] = isupper(caseToMaintain[i]) ? toupper(str[i]) : tolower(str[i]);
     }
 	return str;
+}
+
+string getFileName(string str, bool includeExtension) {
+    if(str[str.length() - 1] == '/' || str[str.length() - 1] == '\\') {
+        str = str.substr(0, str.length() - 1);
+    }
+
+    size_t pos = str.find_last_of("/\\");
+    if(pos != string::npos) {
+    	str = str.substr(pos + 1);
+    }
+
+    if(str.size() > 15) {
+		str = str.substr(0, 15) + "...";
+	}
+
+	if(!includeExtension) {
+		pos = str.find_last_of(".");
+		if(pos != string::npos) {
+			str = str.substr(0, pos);
+		}
+	}
+	return str;
+}
+
+vector<string> split(string str, char delimiter) {
+	vector<string> res;
+	stringstream ss(str);
+	string s;
+  
+    while(getline(ss, s, delimiter)) {
+        res.push_back(s);
+	}
+  
+	return res;
+} 
+
+bool fileExists(string path) {
+	ifstream file(path);
+    bool good = file.good();
+    file.close();
+    return good;
+}
+
+int keepBetween(int value, int min, int max) {
+	if(value < min) return min;
+	if(value > max) return max;
+	return value;
 }

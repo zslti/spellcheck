@@ -1,9 +1,4 @@
-﻿#include <iostream>
-#include <chrono>
-#include <QMutex>
-#include <QRegularExpression>
-#include "errordetection.h"
-#include "utils.h"
+﻿#include "errordetection.h"
 
 using namespace std;
 
@@ -16,6 +11,8 @@ QString autoDetectedDictionary = "";
 int autoDetectedDictionaryID = -1;
 const int autoDetect = -1;
 const QString validChars = "abcdefghijklmnopqrstuvwxyzüóőúűéáăîâșț";
+class FileTab;
+class Error;
 
 int getCurrentDictionary() {
 	return currentDictionary == autoDetect ? autoDetectedDictionaryID : currentDictionary;
@@ -291,4 +288,42 @@ void spellcheck::underlineErrorsLater() {
 	QTimer::singleShot(interval, this, [=] {
 		underlineErrors();
 	});
+}
+
+void spellcheck::detectLanguage() {
+    QString text = textEdit->toPlainText();
+    QString word = "";
+    vector<int> validWords(dictionaries.size());
+	for(int i = 0; i < text.size(); i++) {
+		if(::isSeparator(text[i])) {
+			if(word.length() == 0) continue;
+            for(int dict = 0; dict < dictionaries.size(); dict++) {
+            	validWords[dict] += dictionaries[dict].words.contains(word.toLower().toStdString());
+                if(validWords[dict] > 10) {
+                    autoDetectedDictionaryID = dict;
+                    autoDetectedDictionary = " (" + QString::fromStdString(getFileName(dictionaries[dict].path, false)) + ")";
+                    return;
+                }
+            }
+			word = "";
+		} else {
+			word += text[i];
+		}
+	}
+
+    int maxValue = 0, maxIndex = 0;
+    for(int i = 0; i < validWords.size(); i++) {
+    	if(validWords[i] > maxValue) {
+            maxValue = validWords[i];
+            maxIndex = i;
+        }
+    }
+
+    if(maxValue > 3) {
+        autoDetectedDictionaryID = maxIndex;
+        autoDetectedDictionary = " (" + QString::fromStdString(getFileName(dictionaries[maxIndex].path, false)) + ")";
+    } else {
+        autoDetectedDictionaryID = -1;
+    	autoDetectedDictionary = "";
+    }
 }

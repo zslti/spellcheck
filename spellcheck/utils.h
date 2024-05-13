@@ -1,12 +1,20 @@
 #pragma once
 
-#include <string>
+#include <sstream>
+#include <fstream>
 #include <vector>
+#include <chrono>
+#include <map>
+#include <algorithm>
 
 using namespace std;
 
-extern int editDistance(string, string);
-extern vector<string>& sortByRelevance(vector<string>&, string);
-extern vector<string>& removeDuplicates(vector<string>&);
-extern string maintainCase(string, string);
-extern string normalize(string);
+int editDistance(string, string);
+vector<string>& sortByRelevance(vector<string>&, string);
+vector<string>& removeDuplicates(vector<string>&);
+string maintainCase(string, string);
+string normalize(string);
+string getFileName(string, bool = true);
+vector<string> split(string, char);
+bool fileExists(string);
+int keepBetween(int, int, int);

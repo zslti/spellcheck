@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vector>
-#include <QString>
+#include <QRegularExpression>
 #include "spellcheck.h"
 #include "rbtree.h"
+#include "utils.h"
 
 using namespace std;
 

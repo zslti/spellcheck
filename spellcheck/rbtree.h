@@ -1,8 +1,6 @@
 #pragma once
-
-#include <iostream>
-#include <fstream>
-#include <vector>
+#include "utils.h"
+#include <stack>
 
 #define rbt RedBlackTree<T>
 #define dir RedBlackTree<int>::direction

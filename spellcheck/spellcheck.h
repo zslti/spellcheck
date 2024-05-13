@@ -1,37 +1,24 @@
 #pragma once
 
-#include "ui_spellcheck.h"
-#include <QtWidgets/QMainWindow>
 #include <QTextEdit>
 #include <QTimer>
-#include <QTextCursor>
-#include <QTextCharFormat>
-#include <QDebug>
-#include <QResizeEvent>
-#include <QWheelEvent>
 #include <QPushButton>
-#include <QObject>
-#include <QEvent>
 #include <QShortcut>
 #include <QFileDialog>
-#include <QKeySequence>
 #include <QCloseEvent>
-#include <vector>
-#include <string>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include "errordetection.h"
 #include <QLabel>
-#include <functional>
-#include <tuple>
-#include <map>
+#include "ui_spellcheck.h"
+#include "errordetection.h"
+#include "filetab.h"
+#include "popup.h"
+#include "utils.h"
 
 using namespace std;
 
 class Error;
 class spellcheck;
 class Settings;
+class Popup;
 
 const int fileButtonWidth = 120;
 const int fileButtonHeight = 30;
@@ -39,51 +26,11 @@ const int bottomBarHeight = 20;
 const int minPopupWidth = 100;
 const int popupWidthPadding = 70;
 extern Settings settings;
+extern bool acceptingPopupSelection;
+extern bool justSwitchedFile;
 
-class FileTab {
-public:
-    QPushButton* button;
-    QPushButton* closeButton;
-    string path;
-    string text;
-    int id;
-    bool saved;
-    vector<Error> errors;
-    int errorCount;
-    int errorDetectionTime;
-    int suggestionsTime;
-
-    void detectErrors(QString);
-
-    FileTab(QPushButton* button, QPushButton* closeButton, string path, string text, int id, bool saved);
-    FileTab(string path) : FileTab(nullptr, nullptr, path, "", -1, true) {}
-    
-    void destroy();
-};
-
-extern QString popupSelectedText;
-class Popup {
-public:
-    class Button {
-    public:
-        QString text;
-        function<void()> onClick;
-        bool isHighlighted;
-        bool hasTopSeparator;
-        bool hasBottomSeparator;
-    };
-
-    QPushButton* background;
-    QLabel* title;
-    QLabel* subtitle;
-    QPushButton* closeButton;
-    vector<QPushButton*> buttons;
-    int selectedIndex;
-    bool isOperableWithArrowKeys;
-
-    Popup(spellcheck* parent, int x, int y, QString title, QString subtitle, vector<Button> buttons, int buttonHeight, bool isOperableWithArrowKeys);
-    ~Popup();
-};
+class Popup;
+class FileTab;
 
 class spellcheck : public QMainWindow
 {
@@ -104,9 +51,7 @@ public slots:
     void addFile();
     void closeEvent(QCloseEvent*);
     string getNewUntitledFile();
-    bool fileExists(string);
     void addUntitledFile();
-    int keepBetween(int, int, int);
     void underlineErrors();
     void underlineErrorsLater();
     void destroyPopup();
