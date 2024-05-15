@@ -194,7 +194,7 @@ namespace style {
             border-width: 2px;\
             text-align: left;\
             padding-left: 10px;\
-			border-top-color: #363636;\
+            border-top-color: #363636;\
         }";
     const QString popupButtonWithBottomSeparator =
         "QPushButton {\
@@ -202,6 +202,6 @@ namespace style {
             border-width: 2px;\
             text-align: left;\
             padding-left: 10px;\
-			border-bottom-color: #363636;\
+            border-bottom-color: #363636;\
         }";
 }

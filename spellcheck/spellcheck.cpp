@@ -7,7 +7,7 @@ Settings settings;
 
 Settings::Settings() {
     this->autoCorrect = this->areSuggestionsEnabled = true;
-	errorTypes[ErrorType::invalidWord] = ErrorTypeSetting("Invalid words");
+    errorTypes[ErrorType::invalidWord] = ErrorTypeSetting("Invalid words");
     errorTypes[ErrorType::whitespace] = ErrorTypeSetting("Whitespace");
     errorTypes[ErrorType::capitalization] = ErrorTypeSetting("Capitalization");
     errorTypes[ErrorType::repeatedWords] = ErrorTypeSetting("Repeated words");
@@ -42,7 +42,7 @@ void spellcheck::updateBottomBarGeometry() {
 
     errorsButton->setText(QString::number(focusedFile->errorCount) + " error" + (focusedFile->errorCount != 1 ? "s" : ""));
     if(focusedFile->errorDetectionTime != -1) {
-    	errorsButton->setText(errorsButton->text() + " (" + QString::number(focusedFile->errorDetectionTime) + "ms)");
+        errorsButton->setText(errorsButton->text() + " (" + QString::number(focusedFile->errorDetectionTime) + "ms)");
     }
     int errorsButtonWidth = errorsButton->sizeHint().width();
     errorsButton->setGeometry(0, y - bottomBarHeight, errorsButtonWidth, bottomBarHeight);
@@ -50,16 +50,16 @@ void spellcheck::updateBottomBarGeometry() {
     if(popup != nullptr && popup->buttons.size() > 1) {
         suggestionsButton->show();
         suggestionsButton->setText(QString("Suggestions found in ") + QString::number(focusedFile->suggestionsTime) + QString("ms"));
-	    int suggestionsButtonWidth = suggestionsButton->sizeHint().width();
-	    suggestionsButton->setGeometry(errorsButtonWidth, y - bottomBarHeight, suggestionsButtonWidth, bottomBarHeight);
+        int suggestionsButtonWidth = suggestionsButton->sizeHint().width();
+        suggestionsButton->setGeometry(errorsButtonWidth, y - bottomBarHeight, suggestionsButtonWidth, bottomBarHeight);
         
         bool isWordSuggestion = false;
         for(QPushButton* button : popup->buttons) {
             if(button->text() == "Add to dictionary") {
-				isWordSuggestion = true;
-				break;
-			}
-		}
+                isWordSuggestion = true;
+                break;
+            }
+        }
         if(!isWordSuggestion) suggestionsButton->hide();
     } else {
         suggestionsButton->hide();
@@ -82,7 +82,7 @@ void spellcheck::onCursorChanged() {
     if(currentChar == '\x9' || (currentChar == ' ' && settings.autoCorrect)) { // tab
         Error error = getErrorAt(textEdit->textCursor().position() - 1, getText(), focusedFile->errors);
         if(error.type == none || error.text == " ") return;
-    	if(textEdit->toPlainText().count('\x9') > QString::fromStdString(oldText).count('\x9') || (textEdit->toPlainText().count(' ') > QString::fromStdString(oldText).count(' ') && settings.autoCorrect)) {
+        if(textEdit->toPlainText().count('\x9') > QString::fromStdString(oldText).count('\x9') || (textEdit->toPlainText().count(' ') > QString::fromStdString(oldText).count(' ') && settings.autoCorrect)) {
             QTextCursor c = textEdit->textCursor();
             c.setPosition(cursor.position() - 1);
             c.setPosition(cursor.position(), QTextCursor::KeepAnchor);
@@ -127,7 +127,7 @@ void spellcheck::onCursorChanged() {
 
     if(error.type == invalidWord) {
         int dict = getCurrentDictionary();
-    	buttons.push_back({"Add to dictionary", [=]() {
+        buttons.push_back({"Add to dictionary", [=]() {
             dictionaries[dict].words.insert(error.text.toStdString());
             dictionaries[dict].changed = true;
             focusedFile->detectErrors(getText());
@@ -200,22 +200,22 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
         buttons.push_back({"Auto detect", [=]() {
             currentDictionary = autoDetect;
             detectLanguage();
-			focusedFile->detectErrors(getText());
-			underlineErrors();
-			updateBottomBarGeometry();
-			destroyPopup();
+            focusedFile->detectErrors(getText());
+            underlineErrors();
+            updateBottomBarGeometry();
+            destroyPopup();
         }, currentDictionary == autoDetect, false, true});
 
         // szótárak gombjai
         for(int i = 0; i < dictionaries.size(); i++) {
             QString dictionaryName = QString::fromStdString(getFileName(dictionaries[i].path, false));
             buttons.push_back({dictionaryName, [=]() {
-				currentDictionary = i;
+                currentDictionary = i;
                 focusedFile->detectErrors(getText());
-				underlineErrors();
+                underlineErrors();
                 updateBottomBarGeometry();
-				destroyPopup();
-			}, i == currentDictionary});
+                destroyPopup();
+            }, i == currentDictionary});
         }
 
         buttons.push_back({"Add new dictionary", [=]() {
@@ -245,24 +245,24 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
     errorsButton = new QPushButton("0 errors", this);
     errorsButton->setStyleSheet(style::bottomBarButton);
     connect(errorsButton, &QPushButton::clicked, this, [=]() {
-		destroyPopup();
+        destroyPopup();
 
         // az elejére visszük a kurzort, mert onCursorChange-en lesz destroyolva a popup, 
         // és ha oda kattintanánk ahol volt eddig, akkor nem fut le az event
         textEdit->moveCursor(QTextCursor::Start);
         destroyPopup();
-		vector<Popup::Button> buttons;
+        vector<Popup::Button> buttons;
 
         for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
             buttons.push_back({type.second.name, [=]() {
-				settings.errorTypes[type.first].enabled = !settings.errorTypes[type.first].enabled;
-				focusedFile->detectErrors(getText());
-				underlineErrors();
-				updateBottomBarGeometry();
-				destroyPopup();
+                settings.errorTypes[type.first].enabled = !settings.errorTypes[type.first].enabled;
+                focusedFile->detectErrors(getText());
+                underlineErrors();
+                updateBottomBarGeometry();
+                destroyPopup();
                 errorsButton->click();
-			}, type.second.enabled});
-		}
+            }, type.second.enabled});
+        }
         
         buttons.push_back({"Fix all errors", [=]() {
             QTextCursor c = textEdit->textCursor();
@@ -291,9 +291,9 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
             destroyPopup();
         }});
 
-		QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
-		popup = new Popup(this, 0, cursor.y(), "Errors", "Choose the type of errors to detect", buttons, 30, false);
-	});
+        QPoint cursor = QWidget::mapFromGlobal(QCursor::pos());
+        popup = new Popup(this, 0, cursor.y(), "Errors", "Choose the type of errors to detect", buttons, 30, false);
+    });
 
     suggestionsButton = new QPushButton("", this);
     suggestionsButton->setStyleSheet(style::bottomBarButton);
@@ -306,13 +306,13 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
 
 void spellcheck::onTextChanged() {
     if(justSwitchedFile) {
-    	justSwitchedFile = false;
-    	return;
+        justSwitchedFile = false;
+        return;
     }
 
     if(focusedFile != nullptr && focusedFile->saved) {
-    	focusedFile->saved = false;
-    	focusedFile->button->setText(focusedFile->button->text() + "*");
+        focusedFile->saved = false;
+        focusedFile->button->setText(focusedFile->button->text() + "*");
     }
 }
 
@@ -340,7 +340,7 @@ void spellcheck::wheelEvent(QWheelEvent* event) {
 
         // minden gombot eltolunk amennyivel kell
         for(FileTab &tab : fileTabs) {
-        	tab.button->setGeometry(tab.button->x() + e - diff, 0, fileButtonWidth, fileButtonHeight + 1);
+            tab.button->setGeometry(tab.button->x() + e - diff, 0, fileButtonWidth, fileButtonHeight + 1);
             tab.closeButton->setGeometry(tab.closeButton->x() + e - diff, 0, 20, fileButtonHeight + 1);
         }
         addFileButton->setGeometry(addFileButton->x() + e - diff, 0, fileButtonHeight + 1, fileButtonHeight + 1);
@@ -348,8 +348,8 @@ void spellcheck::wheelEvent(QWheelEvent* event) {
 }
 
 vector<string> spellcheck::getFilesFromLastSession() {
-	vector<string> files;
-	ifstream file("data/lastsession.txt");
+    vector<string> files;
+    ifstream file("data/lastsession.txt");
     if(!file) return files;
     string lastSession;
     file >> lastSession;
@@ -358,14 +358,14 @@ vector<string> spellcheck::getFilesFromLastSession() {
         ifstream f(fileName);
         if(f.good()) files.push_back(fileName);
         f.close();
-	}
-	return files;
+    }
+    return files;
 }
 
 void spellcheck::restoreDefaultSettings() {
-	ofstream file("data/settings.txt");
-	file << "0 1 1 1 1 1";
-	file.close();
+    ofstream file("data/settings.txt");
+    file << "0 1 1 1 1 1";
+    file.close();
 }
 
 void spellcheck::restoreLastSession() {
@@ -375,8 +375,8 @@ void spellcheck::restoreLastSession() {
     else {
         settingsFile >> settings.autoCorrect >> settings.areSuggestionsEnabled;
         for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
-			settingsFile >> type.second.enabled;
-		}
+            settingsFile >> type.second.enabled;
+        }
     }
 
     // szótárak betöltése
@@ -391,7 +391,7 @@ void spellcheck::restoreLastSession() {
             dictionaries[dictionaries.size() - 1].path = path;
             ifstream file("data/dictionaries/" + path);
             if(!file.good()) {
-        	    continue;
+                continue;
             }
             dictionaries[dictionaries.size() - 1].words.load(file);
             file.close();
@@ -399,13 +399,13 @@ void spellcheck::restoreLastSession() {
     }
 
     // fileok betöltése
-	vector<string> files = getFilesFromLastSession();
+    vector<string> files = getFilesFromLastSession();
     if(files.empty()) files.push_back(getNewUntitledFile());
-	vector<FileTab> tabs;
+    vector<FileTab> tabs;
     for(int i = 0; i < files.size(); i++) {
-		tabs.push_back({nullptr, nullptr, files[i], "", i, true});
+        tabs.push_back({nullptr, nullptr, files[i], "", i, true});
     }
-	createFileTabs(tabs);
+    createFileTabs(tabs);
 }
 
 void spellcheck::saveCurrentSession() {
@@ -413,17 +413,17 @@ void spellcheck::saveCurrentSession() {
     ofstream settingsFile("data/settings.txt");
     settingsFile << settings.autoCorrect << " " << settings.areSuggestionsEnabled << " ";
     for(pair<const int, ErrorTypeSetting> &type : settings.errorTypes) {
-		settingsFile << type.second.enabled << " ";
-	}
+        settingsFile << type.second.enabled << " ";
+    }
 
     // nyitott fileok mentése
     ofstream file("data/lastsession.txt");
-	string lastSession = "";
-	for(FileTab &tab : fileTabs) {
-    	lastSession += tab.path + "|";
+    string lastSession = "";
+    for(FileTab &tab : fileTabs) {
+        lastSession += tab.path + "|";
     }
-	file << lastSession;
-	file.close();
+    file << lastSession;
+    file.close();
 
     // szótárak mentése
     ofstream file2("data/dictionaries.txt");
@@ -434,13 +434,13 @@ void spellcheck::saveCurrentSession() {
             dictionary.words.save(file);
             file.close();
         }
-		file2 << dictionary.path << "|";
-	}
+        file2 << dictionary.path << "|";
+    }
 }
 
 void spellcheck::closeEvent(QCloseEvent *event) {
-	saveCurrentSession();
-	event->accept();
+    saveCurrentSession();
+    event->accept();
 }
 
 void spellcheck::handleArrow(bool direction) {
@@ -464,18 +464,18 @@ void spellcheck::handleArrowUp() {
 }
 
 void spellcheck::acceptPopupSelection() {
-	if(popup == nullptr) return;
+    if(popup == nullptr) return;
     if(popup->buttons.size() == 0) {destroyPopup(); return;};
     if(popup->buttons.size() == 1 && popup->buttons[0]->text() == "Add to dictionary") {destroyPopup(); return;};
     acceptingPopupSelection = true;
-	popup->buttons[popup->selectedIndex]->click();
+    popup->buttons[popup->selectedIndex]->click();
 }
 
 void spellcheck::insertSpaceWithoutAutoCorrect() {
     bool oldAutoCorrect = settings.autoCorrect;
     settings.autoCorrect = false;
-	QTextCursor cursor = textEdit->textCursor();
-	cursor.insertText(" ");
+    QTextCursor cursor = textEdit->textCursor();
+    cursor.insertText(" ");
     settings.autoCorrect = oldAutoCorrect;
     updateBottomBarGeometry();
 }

@@ -6,24 +6,24 @@ typedef chrono::time_point<chrono::high_resolution_clock> TimePoint;
 typedef chrono::duration<double> Duration;
 
 map<string, char> diacritics = {
-	{"ü", 'u'}, {"ó", 'o'}, {"ő", 'o'}, {"ú", 'u'}, {"ű", 'u'}, {"é", 'e'}, {"á", 'a'}, 
+    {"ü", 'u'}, {"ó", 'o'}, {"ő", 'o'}, {"ú", 'u'}, {"ű", 'u'}, {"é", 'e'}, {"á", 'a'}, 
     {"ă", 'a'}, {"î", 'i'}, {"â", 'a'}, {"ș", 's'}, {"ț", 't'},
 };
 
 string normalize(string str) {
     for(int i = 0; i < str.length(); i++) {
         if(diacritics.find(str.substr(i, 2)) != diacritics.end()) {
-        	str[i] = diacritics[str.substr(i, 2)];
-        	str.erase(i + 1, 1);
+            str[i] = diacritics[str.substr(i, 2)];
+            str.erase(i + 1, 1);
         }
     }
-	return str.c_str();
+    return str.c_str();
 }
 
 vector<string>& removeDuplicates(vector<string> &arr) {
-	sort(arr.begin(), arr.end());
-	arr.erase(unique(arr.begin(), arr.end()), arr.end());
-	return arr;
+    sort(arr.begin(), arr.end());
+    arr.erase(unique(arr.begin(), arr.end()), arr.end());
+    return arr;
 }
 
 int editDistance(string str1, string str2) {
@@ -33,13 +33,13 @@ int editDistance(string str1, string str2) {
     string normalizedStr1 = normalize(str1).c_str();
     string normalizedStr2 = normalize(str2).c_str();
 
-	int n = normalizedStr1.length();
-	int m = normalizedStr2.length();
+    int n = normalizedStr1.length();
+    int m = normalizedStr2.length();
 
-	if(n == 0 || m == 0) return max(n, m);
+    if(n == 0 || m == 0) return max(n, m);
     vector<vector<int>> dp(n + 1, vector<int>(m + 1));
     for(int i = 0; i <= n; i++) {
-    	for(int j = 0; j <= m; j++) {
+        for(int j = 0; j <= m; j++) {
             if(i == 0) dp[i][j] = j;
             else if(j == 0) dp[i][j] = i;
             else if(normalizedStr1[i - 1] == normalizedStr2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
@@ -54,7 +54,7 @@ int editDistance(string str1, string str2) {
 vector<string>& sortByRelevance(vector<string> &arr, string key) {
     TimePoint start = chrono::high_resolution_clock::now();
 
-	sort(arr.begin(), arr.end(), [key](string a, string b) {
+    sort(arr.begin(), arr.end(), [key](string a, string b) {
         bool aStartsWithKey = a.find(key) == 0;
         bool bStartsWithKey = b.find(key) == 0;
 
@@ -79,16 +79,16 @@ vector<string>& sortByRelevance(vector<string> &arr, string key) {
 
 string maintainCase(string str, string caseToMaintain) {
     while(caseToMaintain.length() < str.length()) {
-     	caseToMaintain += caseToMaintain[caseToMaintain.length()];
+         caseToMaintain += caseToMaintain[caseToMaintain.length()];
     }
     if(caseToMaintain.length() > str.length()) {
-    	caseToMaintain = caseToMaintain.substr(0, str.length());
+        caseToMaintain = caseToMaintain.substr(0, str.length());
     }
 
-	for(int i = 0; i < caseToMaintain.length(); i++) {
-    	str[i] = isupper(caseToMaintain[i]) ? toupper(str[i]) : tolower(str[i]);
+    for(int i = 0; i < caseToMaintain.length(); i++) {
+        str[i] = isupper(caseToMaintain[i]) ? toupper(str[i]) : tolower(str[i]);
     }
-	return str;
+    return str;
 }
 
 string getFileName(string str, bool includeExtension) {
@@ -98,56 +98,56 @@ string getFileName(string str, bool includeExtension) {
 
     size_t pos = str.find_last_of("/\\");
     if(pos != string::npos) {
-    	str = str.substr(pos + 1);
+        str = str.substr(pos + 1);
     }
 
     if(str.size() > 15) {
-		str = str.substr(0, 15) + "...";
-	}
+        str = str.substr(0, 15) + "...";
+    }
 
-	if(!includeExtension) {
-		pos = str.find_last_of(".");
-		if(pos != string::npos) {
-			str = str.substr(0, pos);
-		}
-	}
-	return str;
+    if(!includeExtension) {
+        pos = str.find_last_of(".");
+        if(pos != string::npos) {
+            str = str.substr(0, pos);
+        }
+    }
+    return str;
 }
 
 vector<string> split(string str, char delimiter) {
-	vector<string> res;
-	stringstream ss(str);
-	string s;
+    vector<string> res;
+    stringstream ss(str);
+    string s;
   
     while(getline(ss, s, delimiter)) {
         res.push_back(s);
-	}
+    }
   
-	return res;
+    return res;
 } 
 
 bool fileExists(string path) {
-	ifstream file(path);
+    ifstream file(path);
     bool good = file.good();
     file.close();
     return good;
 }
 
 int keepBetween(int value, int min, int max) {
-	if(value < min) return min;
-	if(value > max) return max;
-	return value;
+    if(value < min) return min;
+    if(value > max) return max;
+    return value;
 }
 
 double keepBetween(double value, double min, double max) {
-	if(value < min) return min;
-	if(value > max) return max;
-	return value;
+    if(value < min) return min;
+    if(value > max) return max;
+    return value;
 }
 
 QColor interpolateColors(QColor color1, QColor color2, double progress) {
-	int r = color1.red() + progress * (color2.red() - color1.red());
-	int g = color1.green() + progress * (color2.green() - color1.green());
-	int b = color1.blue() + progress * (color2.blue() - color1.blue());
-	return QColor(r, g, b);
+    int r = color1.red() + progress * (color2.red() - color1.red());
+    int g = color1.green() + progress * (color2.green() - color1.green());
+    int b = color1.blue() + progress * (color2.blue() - color1.blue());
+    return QColor(r, g, b);
 }

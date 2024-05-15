@@ -520,7 +520,7 @@ template<typename T> vector<T> rbt::valuesBetween(T minimum, T maximum) {
 }
 
 template<typename T> void rbt::valuesBetween(T minimum, T maximum, int maxValues, vector<T> &values) {
-	if(isEmpty()) return;
+    if(isEmpty()) return;
     if(minimum > maximum) swap(minimum, maximum);
     this->root->valuesBetween(values, minimum, maximum);
     if(values.size() > maxValues) values.resize(maxValues);

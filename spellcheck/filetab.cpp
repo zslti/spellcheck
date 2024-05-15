@@ -16,7 +16,7 @@ FileTab::FileTab(QPushButton* button, QPushButton* closeButton, string path, str
 FileTab* spellcheck::focusedFile = nullptr;
 
 void FileTab::destroy() {
-	if(button != nullptr) delete button;
+    if(button != nullptr) delete button;
     if(closeButton != nullptr) delete closeButton;
 }
 
@@ -31,8 +31,8 @@ void spellcheck::createFileTabs(vector<FileTab> &tabs) {
         int id = i + maxFileID;
 
         // file gombok létrehozása
-		QPushButton* button = new QPushButton(QString::fromStdString(getFileName(tabs[i].path)), this);
-		button->setGeometry(fileTabs.size() * (fileButtonWidth - 1) + fileTabScrollValue, 0, fileButtonWidth, fileButtonHeight + 1);
+        QPushButton* button = new QPushButton(QString::fromStdString(getFileName(tabs[i].path)), this);
+        button->setGeometry(fileTabs.size() * (fileButtonWidth - 1) + fileTabScrollValue, 0, fileButtonWidth, fileButtonHeight + 1);
         button->setVisible(true);
         button->setStyleSheet(style::fileButton);
         connect(button, &QPushButton::clicked, this, [this, id]() {focusFile(id);});
@@ -50,8 +50,8 @@ void spellcheck::createFileTabs(vector<FileTab> &tabs) {
         buffer << file.rdbuf();
         file.close();
 
-	    fileTabs.push_back(FileTab(button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved));
-	}
+        fileTabs.push_back(FileTab(button, closeButton, tabs[i].path, buffer.str(), id, tabs[i].saved));
+    }
     if(focusedFile == nullptr) focusFile(fileTabs[0].id);
 
     // az új file gombot a fileok végéhez teszük
@@ -64,18 +64,18 @@ void spellcheck::focusFile(int fileID) {
     justSwitchedFile = true;
     // lementjük a jelenlegi fókuszban lévő file tartalmát
     if(focusedFile != nullptr) {
-		focusedFile->text = textEdit->toPlainText().toStdString();
-	}
+        focusedFile->text = textEdit->toPlainText().toStdString();
+    }
 
     for(FileTab& tab : fileTabs) {
         if(tab.id == fileID) {
-			tab.button->setStyleSheet(style::fileButtonFocused);
+            tab.button->setStyleSheet(style::fileButtonFocused);
             textEdit->setText(QString::fromStdString(tab.text));
             focusedFile = &tab;
         } else {
-			tab.button->setStyleSheet(style::fileButton);
-		}
-	}
+            tab.button->setStyleSheet(style::fileButton);
+        }
+    }
 
     detectLanguage();
     focusedFile->detectErrors(getText());
@@ -84,16 +84,16 @@ void spellcheck::focusFile(int fileID) {
 }
 
 void spellcheck::saveFile() {
-	if(focusedFile == nullptr) return;
-	ofstream file(focusedFile->path);
-	file << textEdit->toPlainText().toStdString();
-	file.close();
-	focusedFile->saved = true;
-	focusedFile->button->setText(QString::fromStdString(getFileName(focusedFile->path)));
+    if(focusedFile == nullptr) return;
+    ofstream file(focusedFile->path);
+    file << textEdit->toPlainText().toStdString();
+    file.close();
+    focusedFile->saved = true;
+    focusedFile->button->setText(QString::fromStdString(getFileName(focusedFile->path)));
 }
 
 void spellcheck::closeFile(int fileID) {
-	// kitöröljük a jelenlegi file gombot
+    // kitöröljük a jelenlegi file gombot
     int i = 0;
     int deletedI = -1;
     for(i; i < fileTabs.size(); i++) {
@@ -109,9 +109,9 @@ void spellcheck::closeFile(int fileID) {
                 focusedFile = nullptr;
                 focusFile(fileTabs[0].id);
             }
-			break;
-		}
-	}
+            break;
+        }
+    }
 
     // ha a fókuszált file előtti filet zártuk be a focusedFile-t egyel vissza tesszük
     for(int i = 0; i < fileTabs.size(); i++) {
@@ -134,8 +134,8 @@ void spellcheck::closeFile(int fileID) {
 }   
 
 void spellcheck::addFile() {
-	QString path = QFileDialog::getOpenFileName(this, "Open file");
-	if(path.isEmpty()) return;
+    QString path = QFileDialog::getOpenFileName(this, "Open file");
+    if(path.isEmpty()) return;
 
     FileTab tab(path.toStdString());
     vector<FileTab> tabs = {tab};
@@ -148,14 +148,14 @@ string spellcheck::getNewUntitledFile() {
     string fileName = "untitled" + (counter == 0 ? "" : "-" + to_string(counter)) + ".txt";
     counter++;
     if(fileExists(fileName)) return getNewUntitledFile();
-	return fileName;
+    return fileName;
  }
 
 void spellcheck::addUntitledFile() {
-	string fileName = getNewUntitledFile();
+    string fileName = getNewUntitledFile();
     FileTab tab(fileName);
-	vector<FileTab> tabs = {tab};
-	createFileTabs(tabs);
+    vector<FileTab> tabs = {tab};
+    createFileTabs(tabs);
     focusedFile = nullptr;
-	focusFile(fileTabs[fileTabs.size() - 1].id);
+    focusFile(fileTabs[fileTabs.size() - 1].id);
 }
