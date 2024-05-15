@@ -138,3 +138,16 @@ int keepBetween(int value, int min, int max) {
 	if(value > max) return max;
 	return value;
 }
+
+double keepBetween(double value, double min, double max) {
+	if(value < min) return min;
+	if(value > max) return max;
+	return value;
+}
+
+QColor interpolateColors(QColor color1, QColor color2, double progress) {
+	int r = color1.red() + progress * (color2.red() - color1.red());
+	int g = color1.green() + progress * (color2.green() - color1.green());
+	int b = color1.blue() + progress * (color2.blue() - color1.blue());
+	return QColor(r, g, b);
+}

@@ -65,6 +65,7 @@ public slots:
     void acceptPopupSelection();
     void restoreDefaultSettings();
     void insertSpaceWithoutAutoCorrect();
+    void highlightCorrectedWord(int, int, double = 0.0);
 private:
     Ui::spellcheckClass ui;
     QTextEdit* textEdit;
@@ -102,6 +103,7 @@ public:
 namespace style {
     const QString accentColor = "#77c2ff";
     const QString highlightColor = "#62788a";
+    const QString errorCorrectionColor = "#6bceff";
     const QString fileButtonFocused =
         "QPushButton {\
             color: #f0f0f0;\

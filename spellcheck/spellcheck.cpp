@@ -116,9 +116,12 @@ void spellcheck::onCursorChanged() {
             c.setPosition(error.endIndex, QTextCursor::KeepAnchor);
             c.insertText(QString::fromStdString(suggestion));
             focusedFile->detectErrors(getText());
+
             underlineErrors();
             updateBottomBarGeometry();
             destroyPopup();
+
+            highlightCorrectedWord(error.startIndex, error.startIndex + suggestion.length());
         }}); 
     }
 
@@ -272,6 +275,8 @@ spellcheck::spellcheck(QWidget *parent) : QMainWindow(parent) {
                 c.setPosition(error.endIndex, QTextCursor::KeepAnchor);
                 c.insertText(suggestion);
                 focusedFile->detectErrors(getText());
+
+                highlightCorrectedWord(error.startIndex, error.startIndex + suggestion.length());
             }
 
             focusedFile->detectErrors(getText());
@@ -473,4 +478,23 @@ void spellcheck::insertSpaceWithoutAutoCorrect() {
 	cursor.insertText(" ");
     settings.autoCorrect = oldAutoCorrect;
     updateBottomBarGeometry();
+}
+
+void spellcheck::highlightCorrectedWord(int start, int end, double progress) {
+    QTextCharFormat format;
+    QTextCursor c = textEdit->textCursor();
+
+    QColor accentColor = QColor(style::errorCorrectionColor);
+    QColor defaultColor = QColor("#ffffff");
+    QColor color = interpolateColors(accentColor, defaultColor, progress);
+
+    format.setForeground(QBrush(color));
+    c.setPosition(start);
+    c.setPosition(end, QTextCursor::KeepAnchor);
+    c.setCharFormat(format);
+
+    progress = keepBetween(progress + 0.02, 0.0, 1.0);
+    if(progress < 1) QTimer::singleShot(10, [=]() {
+        highlightCorrectedWord(start, end, progress);
+    });
 }

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <map>
 #include <algorithm>
+#include <QColor>
 
 using namespace std;
 
@@ -18,3 +19,5 @@ string getFileName(string, bool = true);
 vector<string> split(string, char);
 bool fileExists(string);
 int keepBetween(int, int, int);
+double keepBetween(double, double, double);
+QColor interpolateColors(QColor, QColor, double);
