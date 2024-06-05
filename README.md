@@ -12,7 +12,7 @@ This is a spellchecker built in C++ using the Qt framework. Download it for Wind
 
 🉑️ Language detection
 
-➕ Multiple languages with ability to add your own
+➕ Multiple languages with the ability to add your own
 
 🔤 Autocorrect
 
