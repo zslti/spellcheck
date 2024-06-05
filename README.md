@@ -18,8 +18,8 @@ This is a spellchecker built in C++ using the Qt framework. Download it for Wind
 
 💯 Fast - detects invalid words in less than 10ms (for a text with 100 incorrect words)
 
-# 🚀 Demo(todo)
+# 🚀 Demo
 
 <p align="center">
-  <img src="https://github.com/zslti/scrabble-wild/assets/82903515/0e9b5b84-b895-424d-9c1c-9700057ca23a" alt="" />
+  <img src="https://github.com/zslti/spellcheck/assets/82903515/655e7722-586a-4174-8064-08423491aecd" alt="" />
 </p>
